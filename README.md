@@ -1,7 +1,9 @@
 # Buenos Aires
 
-[![CI](https://github.com/your-username/buenosaires/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/buenosaires/actions/workflows/ci.yml)
-[![Snyk Security](https://snyk.io/test/github/your-username/buenosaires/badge.svg)](https://snyk.io/test/github/your-username/buenosaires)
+[![CI](https://github.com/gbenselum/buenosaires/actions/workflows/ci.yml/badge.svg)](https://github.com/gbenselum/buenosaires/actions/workflows/ci.yml)
+[![Snyk Security](https://snyk.io/test/github/gbenselum/buenosaires/badge.svg)](https://snyk.io/test/github/gbenselum/buenosaires)
+
+A `.snyk` file is included in this repository to allow for managing security policies, such as ignoring specific vulnerabilities. For more information, see the [Snyk documentation](https://docs.snyk.io/features/snyk-cli/policies/the-.snyk-file).
 
 Buenos Aires is a Go-based tool for monitoring repositories and applying GitOps principles to your shell scripts. It watches a specified branch for new `.sh` files and executes them based on a set of configurable rules.
 
@@ -10,7 +12,7 @@ Buenos Aires is a Go-based tool for monitoring repositories and applying GitOps 
 To install Buenos Aires, you'll need to have Go installed on your system. Then, you can use the following command to install the tool:
 
 ```bash
-go install github.com/your-username/buenosaires@latest
+go install github.com/gbenselum/buenosaires@latest
 ```
 
 After installing, you need to run the interactive setup to create the global configuration file:
