@@ -5,6 +5,8 @@
 
 A `.snyk` file is included in this repository to allow for managing security policies, such as ignoring specific vulnerabilities. For more information, see the [Snyk documentation](https://docs.snyk.io/features/snyk-cli/policies/the-.snyk-file).
 
+This project uses GitHub Actions to run a CI/CD pipeline that includes a SAST scan using Snyk. The pipeline is defined in the `.github/workflows/ci.yml` file.
+
 Buenos Aires is a Go-based tool for monitoring repositories and applying GitOps principles to your shell scripts. It watches a specified branch for new `.sh` files and executes them based on a set of configurable rules.
 
 ## Installation
