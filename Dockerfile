@@ -1,6 +1,6 @@
 # ---- Builder Stage ----
 # Use an official Go image as a parent image
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Set the necessary environment variables for a static build
 ENV CGO_ENABLED=0
