@@ -102,3 +102,9 @@ docker run -it --rm \
   -v ~/.buenosaires:/home/appuser/.buenosaires \
   buenosaires install
 ```
+
+## Status Tracking
+
+Buenos Aires keeps track of the scripts it has processed in a `.buenosaires/status.json` file in the root of your repository. This file contains the status of each script, including its linting, testing, and execution status. This file is automatically created and updated by the `run` command.
+
+The `.buenosaires` directory is included in the `.gitignore` file, so the status file will not be committed to your repository.
