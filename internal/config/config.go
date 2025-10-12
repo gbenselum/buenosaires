@@ -7,12 +7,19 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// GUIConfig holds the configuration for the web GUI.
+type GUIConfig struct {
+	Enabled bool `toml:"enabled"`
+	Port    int  `toml:"port"`
+}
+
 // GlobalConfig holds the configuration that is stored in the user's home directory.
 type GlobalConfig struct {
 	User    string         `toml:"user"`
 	LogDir  string         `toml:"log_dir"`
 	Branch  string         `toml:"branch"`
 	Plugins map[string]bool `toml:"plugins"`
+	GUI     GUIConfig      `toml:"gui"`
 }
 
 // RepoConfig holds the configuration specific to a repository.

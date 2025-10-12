@@ -30,12 +30,28 @@ var installCmd = &cobra.Command{
 		branch, _ := reader.ReadString('\n')
 		branch = strings.TrimSpace(branch)
 
+		fmt.Print("Enable Web GUI? (y/n): ")
+		enableGUIStr, _ := reader.ReadString('\n')
+		enableGUI := strings.TrimSpace(strings.ToLower(enableGUIStr)) == "y"
+
+		var port int
+		if enableGUI {
+			fmt.Print("Enter the port for the Web GUI (e.g., 9099): ")
+			portStr, _ := reader.ReadString('\n')
+			portStr = strings.TrimSpace(portStr)
+			fmt.Sscanf(portStr, "%d", &port)
+		}
+
 		cfg := config.GlobalConfig{
 			User:   user,
 			LogDir: logDir,
 			Branch: branch,
 			Plugins: map[string]bool{
 				"shell": true,
+			},
+			GUI: config.GUIConfig{
+				Enabled: enableGUI,
+				Port:    port,
 			},
 		}
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"buenosaires/internal/config"
+	"buenosaires/internal/web"
 	"buenosaires/plugins/shell"
 
 	"github.com/go-git/go-git/v5"
@@ -28,6 +29,12 @@ var runCmd = &cobra.Command{
 		globalConfig, err := config.LoadGlobalConfig()
 		if err != nil {
 			log.Fatalf("Failed to load global config: %v", err)
+		}
+
+		// Start the web server if enabled
+		if globalConfig.GUI.Enabled {
+			addr := fmt.Sprintf(":%d", globalConfig.GUI.Port)
+			go web.StartServer(addr, globalConfig.LogDir)
 		}
 
 		// Open the current repository
