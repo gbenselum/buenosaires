@@ -1,5 +1,7 @@
 # Buenos Aires
 
+[![CI](https://github.com/your-username/buenosaires/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/buenosaires/actions/workflows/ci.yml)
+
 Buenos Aires is a Go-based tool for monitoring repositories and applying GitOps principles to your shell scripts. It watches a specified branch for new `.sh` files and executes them based on a set of configurable rules.
 
 ## Installation
