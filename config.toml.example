@@ -1,0 +1,11 @@
+# Example configuration for a repository.
+# This file should be named config.toml and placed in the root of the repository.
+
+# The user to run the scripts as.
+user = "default"
+
+# The directory to save logs to, relative to the repository root.
+log_dir = "logs"
+
+# Whether to allow scripts to be run with sudo.
+allow_sudo = false
