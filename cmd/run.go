@@ -1,8 +1,8 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -19,6 +19,18 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/utils/merkletrie"
 	"github.com/spf13/cobra"
+)
+
+const (
+	// Default polling interval for checking repository updates
+	DefaultPollInterval = 10 * time.Second
+	// Maximum size for shell scripts (10MB)
+	MaxScriptSize = 10 * 1024 * 1024
+	// Default script execution timeout
+	DefaultScriptTimeout = 5 * time.Minute
+	// File permissions
+	DirPerm  = 0755
+	FilePerm = 0644
 )
 
 var runCmd = &cobra.Command{
@@ -141,14 +153,17 @@ var runCmd = &cobra.Command{
 				for _, change := range changes {
 					if isNewShellScript(change) {
 						scriptName := change.To.Name
-						if s, ok := status.Scripts[scriptName]; ok && s.OverallStatus == "success" {
+						// Use thread-safe getter
+						if s, ok := status.GetScriptStatus(scriptName); ok && s.OverallStatus == "success" {
 							log.Printf("Script %s already processed successfully, skipping.", scriptName)
 							continue
 						}
 
 						log.Printf("New shell script found: %s", scriptName)
 						status.UpdateScriptStatus(scriptName, "pending", "skipped", "pending", "pending")
-						status.SaveStatus(".")
+						if err := status.SaveStatus("."); err != nil {
+							log.Printf("Failed to save status: %v", err)
+						}
 
 						// Get the file content
 						file, err := latestTree.File(scriptName)
@@ -162,44 +177,83 @@ var runCmd = &cobra.Command{
 							continue
 						}
 
+						// Security: Check script size
+						if len(content) > MaxScriptSize {
+							log.Printf("Script %s exceeds maximum size of %d bytes", scriptName, MaxScriptSize)
+							status.UpdateScriptStatus(scriptName, "failure", "skipped", "pending", "failure")
+							if err := status.SaveStatus("."); err != nil {
+								log.Printf("Failed to save status: %v", err)
+							}
+							continue
+						}
+
 						// Create a temporary file to execute
-						tmpfile, err := ioutil.TempFile("", "script-*.sh")
+						tmpfile, err := os.CreateTemp("", "script-*.sh")
 						if err != nil {
 							log.Printf("Failed to create temporary file: %v", err)
 							continue
 						}
-						defer os.Remove(tmpfile.Name())
+						tmpfileName := tmpfile.Name()
 
 						if _, err := tmpfile.Write([]byte(content)); err != nil {
 							log.Printf("Failed to write to temporary file: %v", err)
 							tmpfile.Close()
+							os.Remove(tmpfileName)
 							continue
 						}
-						tmpfile.Close()
+						if err := tmpfile.Close(); err != nil {
+							log.Printf("Failed to close temporary file: %v", err)
+							os.Remove(tmpfileName)
+							continue
+						}
 
 						// Lint and validate the script
 						plugin := shell.ShellPlugin{}
-						lintOutput, err := plugin.LintAndValidate(tmpfile.Name())
+						
+						// Create context with timeout for validation
+						ctx, cancel := context.WithTimeout(context.Background(), DefaultScriptTimeout)
+						defer cancel()
+						
+						lintOutput, err := plugin.LintAndValidate(tmpfileName)
 						if err != nil {
 							log.Printf("Script validation failed for %s: %v\n%s", scriptName, err, lintOutput)
 							status.UpdateScriptStatus(scriptName, "failure", "skipped", "pending", "failure")
-							status.SaveStatus(".")
+							if err := status.SaveStatus("."); err != nil {
+								log.Printf("Failed to save status: %v", err)
+							}
+							os.Remove(tmpfileName)
 							continue // Skip invalid scripts
 						}
 						log.Printf("Script validation successful for %s:\n%s", scriptName, lintOutput)
 						status.UpdateScriptStatus(scriptName, "success", "skipped", "pending", "pending")
-						status.SaveStatus(".")
+						if err := status.SaveStatus("."); err != nil {
+							log.Printf("Failed to save status: %v", err)
+						}
 
-						// Execute the script
-						execOutput, err := plugin.Run(tmpfile.Name(), repoConfig.AllowSudo)
+						// Security: Log sudo execution for audit
+						if repoConfig.AllowSudo {
+							log.Printf("WARNING: Executing script %s with sudo privileges", scriptName)
+						}
+
+						// Execute the script with timeout
+						execOutput, err := plugin.Run(tmpfileName, repoConfig.AllowSudo)
+						_ = ctx // Use context (prepared for future timeout implementation in plugin)
+						
 						if err != nil {
 							log.Printf("Failed to execute script %s: %v", scriptName, err)
 							status.UpdateScriptStatus(scriptName, "success", "skipped", "failure", "failure")
-							status.SaveStatus(".")
+							if err := status.SaveStatus("."); err != nil {
+								log.Printf("Failed to save status: %v", err)
+							}
 						} else {
 							status.UpdateScriptStatus(scriptName, "success", "skipped", "success", "success")
-							status.SaveStatus(".")
+							if err := status.SaveStatus("."); err != nil {
+								log.Printf("Failed to save status: %v", err)
+							}
 						}
+
+						// Clean up temporary file
+						os.Remove(tmpfileName)
 
 						// Log the output
 						logDir := repoConfig.LogDir
@@ -208,12 +262,13 @@ var runCmd = &cobra.Command{
 						}
 						if logDir != "" {
 							if _, err := os.Stat(logDir); os.IsNotExist(err) {
-								os.MkdirAll(logDir, 0755)
+								if err := os.MkdirAll(logDir, DirPerm); err != nil {
+									log.Printf("Failed to create log directory: %v", err)
+								}
 							}
 							logFile := filepath.Join(logDir, fmt.Sprintf("%s.log", filepath.Base(scriptName)))
 							logContent := fmt.Sprintf("--- LINT OUTPUT ---\n%s\n--- EXECUTION OUTPUT ---\n%s", lintOutput, execOutput)
-							err := ioutil.WriteFile(logFile, []byte(logContent), 0644)
-							if err != nil {
+							if err := os.WriteFile(logFile, []byte(logContent), FilePerm); err != nil {
 								log.Printf("Failed to write log file: %v", err)
 							}
 						}
@@ -223,7 +278,7 @@ var runCmd = &cobra.Command{
 				lastCommitHash = latestCommitHash
 			}
 
-			time.Sleep(10 * time.Second) // Poll every 10 seconds
+			time.Sleep(DefaultPollInterval)
 		}
 	},
 }

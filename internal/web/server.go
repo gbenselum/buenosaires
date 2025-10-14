@@ -2,7 +2,6 @@ package web
 
 import (
 	"html/template"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -57,7 +56,7 @@ func StartServer(addr, lDir string) {
 }
 
 func handleList(w http.ResponseWriter, r *http.Request) {
-	files, err := ioutil.ReadDir(logDir)
+	files, err := os.ReadDir(logDir)
 	if err != nil {
 		http.Error(w, "Failed to read log directory", http.StatusInternalServerError)
 		return
@@ -83,14 +82,29 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 
 func handleView(w http.ResponseWriter, r *http.Request) {
 	logName := strings.TrimPrefix(r.URL.Path, "/logs/")
+	
+	// Security: Prevent path traversal attacks
+	logName = filepath.Base(logName) // Only allow filenames, no directory traversal
+	if !strings.HasSuffix(logName, ".log") {
+		http.NotFound(w, r)
+		return
+	}
+	
 	logPath := filepath.Join(logDir, logName)
+	
+	// Additional security check: ensure the resolved path is within logDir
+	cleanPath := filepath.Clean(logPath)
+	if !strings.HasPrefix(cleanPath, filepath.Clean(logDir)) {
+		http.Error(w, "Invalid log file path", http.StatusForbidden)
+		return
+	}
 
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		http.NotFound(w, r)
 		return
 	}
 
-	content, err := ioutil.ReadFile(logPath)
+	content, err := os.ReadFile(logPath)
 	if err != nil {
 		http.Error(w, "Failed to read log file", http.StatusInternalServerError)
 		return

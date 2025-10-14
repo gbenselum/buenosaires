@@ -1,7 +1,6 @@
 package shell
 
 import (
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -10,7 +9,7 @@ import (
 func TestShellPlugin_LintAndValidate(t *testing.T) {
 	// Test case 1: Valid script
 	validScript := "#!/bin/bash\necho 'hello'"
-	tmpfileValid, err := ioutil.TempFile("", "valid-*.sh")
+	tmpfileValid, err := os.CreateTemp("", "valid-*.sh")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
@@ -34,7 +33,7 @@ func TestShellPlugin_LintAndValidate(t *testing.T) {
 
 	// Test case 2: Invalid syntax
 	invalidSyntaxScript := "#!/bin/bash\necho 'hello' &&"
-	tmpfileInvalidSyntax, err := ioutil.TempFile("", "invalid-syntax-*.sh")
+	tmpfileInvalidSyntax, err := os.CreateTemp("", "invalid-syntax-*.sh")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
@@ -51,7 +50,7 @@ func TestShellPlugin_LintAndValidate(t *testing.T) {
 
 	// Test case 3: Shellcheck warning (should not fail)
 	shellcheckWarningScript := "#!/bin/bash\ncd /tmp\nls"
-	tmpfileShellcheck, err := ioutil.TempFile("", "shellcheck-*.sh")
+	tmpfileShellcheck, err := os.CreateTemp("", "shellcheck-*.sh")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
@@ -73,7 +72,7 @@ func TestShellPlugin_LintAndValidate(t *testing.T) {
 func TestShellPlugin_Run(t *testing.T) {
 	// Test case 1: Running without sudo
 	scriptContent := "#!/bin/bash\necho 'hello'"
-	tmpfile, err := ioutil.TempFile("", "test-script-*.sh")
+	tmpfile, err := os.CreateTemp("", "test-script-*.sh")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}

@@ -1,7 +1,7 @@
 package web
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,7 +12,7 @@ import (
 
 func TestHandlers(t *testing.T) {
 	// Create a temporary directory for logs
-	tmpDir, err := ioutil.TempDir("", "test-logs")
+	tmpDir, err := os.MkdirTemp("", "test-logs")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -20,11 +20,11 @@ func TestHandlers(t *testing.T) {
 
 	// Create some dummy log files
 	logFile1 := filepath.Join(tmpDir, "script1.log")
-	if err := ioutil.WriteFile(logFile1, []byte("log content 1"), 0644); err != nil {
+	if err := os.WriteFile(logFile1, []byte("log content 1"), 0644); err != nil {
 		t.Fatalf("Failed to write log file: %v", err)
 	}
 	logFile2 := filepath.Join(tmpDir, "script2.log")
-	if err := ioutil.WriteFile(logFile2, []byte("log content 2"), 0644); err != nil {
+	if err := os.WriteFile(logFile2, []byte("log content 2"), 0644); err != nil {
 		t.Fatalf("Failed to write log file: %v", err)
 	}
 
@@ -46,11 +46,12 @@ func TestHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			resp.StatusCode, http.StatusOK)
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,11 +66,12 @@ func TestHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			resp.StatusCode, http.StatusOK)
 	}
-	body, err = ioutil.ReadAll(resp.Body)
+	body, err = io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)
 	}

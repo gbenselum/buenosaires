@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -16,15 +17,19 @@ const (
 
 // ScriptStatus represents the status of a single script.
 type ScriptStatus struct {
-	LintStatus    string    `json:"lint_status"`
-	TestStatus    string    `json:"test_status"`
-	RunStatus     string    `json:"run_status"`
-	Timestamp     time.Time `json:"timestamp"`
-	OverallStatus string    `json:"overall_status"`
+	LintStatus       string    `json:"lint_status"`
+	TestStatus       string    `json:"test_status"`
+	RunStatus        string    `json:"run_status"`
+	Timestamp        time.Time `json:"timestamp"`
+	OverallStatus    string    `json:"overall_status"`
+	Generation       int       `json:"generation"`        // Increments each time the script is redeployed
+	FirstDeployDate  time.Time `json:"first_deploy_date"` // Date when script was first deployed
+	CurrentVersionDate time.Time `json:"current_version_date"` // Date of the current version
 }
 
 // Status represents the overall status of all scripts in the repository.
 type Status struct {
+	mu      sync.RWMutex
 	Scripts map[string]ScriptStatus `json:"scripts"`
 }
 
@@ -49,11 +54,17 @@ func LoadStatus(repoPath string) (*Status, error) {
 	if err := json.Unmarshal(data, &status); err != nil {
 		return nil, err
 	}
+	if status.Scripts == nil {
+		status.Scripts = make(map[string]ScriptStatus)
+	}
 	return &status, nil
 }
 
 // SaveStatus saves the status to the status.json file.
 func (s *Status) SaveStatus(repoPath string) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
 	statusFilePath := getStatusFilePath(repoPath)
 	buenosairesDir := filepath.Dir(statusFilePath)
 	if _, err := os.Stat(buenosairesDir); os.IsNotExist(err) {
@@ -72,11 +83,41 @@ func (s *Status) SaveStatus(repoPath string) error {
 
 // UpdateScriptStatus updates the status of a script.
 func (s *Status) UpdateScriptStatus(scriptName, lintStatus, testStatus, runStatus, overallStatus string) {
-	s.Scripts[scriptName] = ScriptStatus{
-		LintStatus:    lintStatus,
-		TestStatus:    testStatus,
-		RunStatus:     runStatus,
-		Timestamp:     time.Now(),
-		OverallStatus: overallStatus,
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	now := time.Now()
+	existing, exists := s.Scripts[scriptName]
+	
+	var generation int
+	var firstDeployDate time.Time
+	
+	if exists {
+		// Script already exists, increment generation
+		generation = existing.Generation + 1
+		firstDeployDate = existing.FirstDeployDate
+	} else {
+		// New script
+		generation = 1
+		firstDeployDate = now
 	}
+	
+	s.Scripts[scriptName] = ScriptStatus{
+		LintStatus:         lintStatus,
+		TestStatus:         testStatus,
+		RunStatus:          runStatus,
+		Timestamp:          now,
+		OverallStatus:      overallStatus,
+		Generation:         generation,
+		FirstDeployDate:    firstDeployDate,
+		CurrentVersionDate: now,
+	}
+}
+
+// GetScriptStatus retrieves the status of a script in a thread-safe manner.
+func (s *Status) GetScriptStatus(scriptName string) (ScriptStatus, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	status, exists := s.Scripts[scriptName]
+	return status, exists
 }
