@@ -12,6 +12,7 @@ import (
 	"buenosaires/internal/config"
 	"buenosaires/internal/status"
 	"buenosaires/internal/web"
+	"buenosaires/plugins/docker"
 	"buenosaires/plugins/shell"
 
 	"github.com/go-git/go-git/v5"
@@ -273,6 +274,106 @@ var runCmd = &cobra.Command{
 							}
 						}
 					}
+					
+					// Process Docker container files if Docker plugin is enabled
+					if repoConfig.Docker.Enabled && globalConfig.Plugins["docker"] {
+						if isNewOrModifiedContainerFile(change) {
+							containerPath := change.To.Name
+							containerDir := filepath.Dir(containerPath)
+							containerName := filepath.Base(containerDir)
+							
+							// Use container directory name as identifier
+							statusKey := fmt.Sprintf("container:%s", containerName)
+							
+							if s, ok := status.GetScriptStatus(statusKey); ok && s.OverallStatus == "success" {
+								log.Printf("Container %s already processed successfully, skipping.", containerName)
+								continue
+							}
+
+							log.Printf("New/modified container file found: %s", containerPath)
+							status.UpdateScriptStatus(statusKey, "pending", "skipped", "pending", "pending")
+							if err := status.SaveStatus("."); err != nil {
+								log.Printf("Failed to save status: %v", err)
+							}
+
+						// For Docker builds, we need the entire directory context
+						// Verify the file exists in the tree
+						_, err := latestTree.File(containerPath)
+						if err != nil {
+							log.Printf("Failed to get container file from tree: %v", err)
+							continue
+						}
+						
+						dockerPlugin := docker.DockerPlugin{}
+							
+							// Determine the full path to the container file
+							fullContainerPath := filepath.Join(".", containerPath)
+							
+							// Lint and validate the Dockerfile/Containerfile
+							lintOutput, err := dockerPlugin.LintAndValidate(fullContainerPath)
+							if err != nil {
+								log.Printf("Container validation failed for %s: %v\n%s", containerName, err, lintOutput)
+								status.UpdateScriptStatus(statusKey, "failure", "skipped", "pending", "failure")
+								if err := status.SaveStatus("."); err != nil {
+									log.Printf("Failed to save status: %v", err)
+								}
+								continue
+							}
+							log.Printf("Container validation successful for %s:\n%s", containerName, lintOutput)
+							status.UpdateScriptStatus(statusKey, "success", "skipped", "pending", "pending")
+							if err := status.SaveStatus("."); err != nil {
+								log.Printf("Failed to save status: %v", err)
+							}
+
+							// Build (and optionally run) the container
+							imageTag := repoConfig.Docker.DefaultTag
+							if imageTag == "" {
+								imageTag = "latest"
+							}
+							
+							imageName := containerName
+							if repoConfig.Docker.ImagePrefix != "" {
+								imageName = repoConfig.Docker.ImagePrefix + imageName
+							}
+							
+							log.Printf("Building Docker image: %s:%s", imageName, imageTag)
+							if repoConfig.Docker.AutoRun {
+								log.Printf("WARNING: auto_run is enabled, container will be started automatically")
+							}
+							
+							execOutput, err := dockerPlugin.Run(fullContainerPath, imageName, imageTag, repoConfig.Docker.AutoRun)
+							if err != nil {
+								log.Printf("Failed to build container %s: %v", containerName, err)
+								status.UpdateScriptStatus(statusKey, "success", "skipped", "failure", "failure")
+								if err := status.SaveStatus("."); err != nil {
+									log.Printf("Failed to save status: %v", err)
+								}
+							} else {
+								status.UpdateScriptStatus(statusKey, "success", "skipped", "success", "success")
+								if err := status.SaveStatus("."); err != nil {
+									log.Printf("Failed to save status: %v", err)
+								}
+							}
+
+							// Log the output
+							logDir := repoConfig.LogDir
+							if logDir == "" {
+								logDir = globalConfig.LogDir
+							}
+							if logDir != "" {
+								if _, err := os.Stat(logDir); os.IsNotExist(err) {
+									if err := os.MkdirAll(logDir, DirPerm); err != nil {
+										log.Printf("Failed to create log directory: %v", err)
+									}
+								}
+								logFile := filepath.Join(logDir, fmt.Sprintf("%s-container.log", containerName))
+								logContent := fmt.Sprintf("--- LINT OUTPUT ---\n%s\n--- BUILD/RUN OUTPUT ---\n%s", lintOutput, execOutput)
+								if err := os.WriteFile(logFile, []byte(logContent), FilePerm); err != nil {
+									log.Printf("Failed to write log file: %v", err)
+								}
+							}
+						}
+					}
 				}
 
 				lastCommitHash = latestCommitHash
@@ -289,6 +390,25 @@ func isNewShellScript(change *object.Change) bool {
 		return false
 	}
 	return action == merkletrie.Insert && strings.HasSuffix(change.To.Name, ".sh")
+}
+
+func isNewOrModifiedContainerFile(change *object.Change) bool {
+	action, err := change.Action()
+	if err != nil {
+		return false
+	}
+	
+	// Check if it's in the Containers folder and is a Dockerfile or Containerfile
+	path := change.To.Name
+	if !strings.HasPrefix(path, "Containers/") && !strings.HasPrefix(path, "containers/") {
+		return false
+	}
+	
+	filename := filepath.Base(path)
+	isContainerFile := filename == "Dockerfile" || filename == "Containerfile"
+	
+	// Accept both new files and modifications
+	return (action == merkletrie.Insert || action == merkletrie.Modify) && isContainerFile
 }
 
 func init() {

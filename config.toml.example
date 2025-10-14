@@ -9,3 +9,18 @@ log_dir = "logs"
 
 # Whether to allow scripts to be run with sudo.
 allow_sudo = false
+
+# Docker plugin configuration
+[docker]
+# Enable the Docker plugin (default: true)
+enabled = true
+
+# Automatically run containers after building (default: false for safety)
+# When false, only builds the image. When true, also runs the container.
+auto_run = false
+
+# Default tag for Docker images (default: "latest")
+default_tag = "latest"
+
+# Prefix for image names (optional, e.g., "mycompany/")
+image_prefix = ""

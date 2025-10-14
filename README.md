@@ -46,6 +46,13 @@ log_dir = "logs"
 
 # Whether to allow scripts to be run with sudo.
 allow_sudo = false
+
+# Docker plugin configuration
+[docker]
+enabled = true
+auto_run = false
+default_tag = "latest"
+image_prefix = ""
 ```
 
 Once you've configured your repository, you can start the monitor by running the following command from the root of your repository:
@@ -66,6 +73,81 @@ Buenos Aires will then start monitoring the branch you specified during installa
 4.  **Execution**: If the script passes the validation step, Buenos Aires will execute it using the shell plugin. The output of the script will be saved to the configured log directory.
 
 This workflow allows you to manage your infrastructure and deployments through Git, with the assurance that your scripts are validated before they are executed.
+
+## Docker Plugin
+
+Buenos Aires includes a Docker plugin that automatically builds and deploys containers from your repository. This enables container-based GitOps workflows alongside shell script automation.
+
+### How It Works
+
+1. **Create a `Containers` folder** in your repository root
+2. **Add subdirectories** for each container (e.g., `Containers/webapp`, `Containers/api`)
+3. **Place a `Dockerfile` or `Containerfile`** in each subdirectory
+4. **Commit and push** to the monitored branch
+
+Buenos Aires will automatically:
+- Detect new or modified container files
+- Lint and validate with `hadolint` (if installed)
+- Build the Docker image
+- Optionally run the container (if `auto_run` is enabled)
+- Track the deployment status
+
+### Configuration
+
+Add Docker configuration to your repository's `config.toml`:
+
+```toml
+[docker]
+# Enable the Docker plugin (default: true)
+enabled = true
+
+# Automatically run containers after building (default: false for safety)
+# When false, only builds the image. When true, also runs the container.
+auto_run = false
+
+# Default tag for Docker images (default: "latest")
+default_tag = "latest"
+
+# Prefix for image names (optional, e.g., "mycompany/")
+image_prefix = ""
+```
+
+### Example Repository Structure
+
+```
+myrepo/
+├── config.toml
+├── Containers/
+│   ├── webapp/
+│   │   ├── Dockerfile
+│   │   └── (app files)
+│   └── api/
+│       ├── Dockerfile
+│       └── (api files)
+└── deploy.sh
+```
+
+### Container Naming
+
+The Docker plugin uses the subdirectory name as the container/image name. For example:
+- `Containers/webapp/Dockerfile` → image: `webapp:latest`
+- `Containers/api/Containerfile` → image: `api:latest`
+
+With `image_prefix = "mycompany/"`:
+- `Containers/webapp/Dockerfile` → image: `mycompany/webapp:latest`
+
+### GitOps Workflow for Containers
+
+1. **Create a new container**: Add a new directory in `Containers/` with a Dockerfile/Containerfile
+2. **Commit and push** to the monitored branch
+3. **Validation**: Buenos Aires validates the Dockerfile with `hadolint` (if available)
+4. **Build**: The Docker image is built automatically
+5. **Deploy**: If `auto_run` is enabled, the container starts automatically
+6. **Track**: Status is recorded in `.buenosaires/status.json`
+
+### Security Note
+
+By default, `auto_run` is set to `false` to prevent automatic execution of containers. Only enable this in trusted environments where you control all container definitions.
 
 ## Running with Docker
 

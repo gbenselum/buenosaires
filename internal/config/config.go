@@ -22,11 +22,20 @@ type GlobalConfig struct {
 	GUI     GUIConfig      `toml:"gui"`
 }
 
+// DockerConfig holds Docker-specific configuration.
+type DockerConfig struct {
+	Enabled      bool   `toml:"enabled"`       // Enable Docker plugin
+	AutoRun      bool   `toml:"auto_run"`      // Automatically run containers after building
+	DefaultTag   string `toml:"default_tag"`   // Default tag for images (e.g., "latest")
+	ImagePrefix  string `toml:"image_prefix"`  // Prefix for image names (e.g., "mycompany/")
+}
+
 // RepoConfig holds the configuration specific to a repository.
 type RepoConfig struct {
-	User      string `toml:"user"`
-	LogDir    string `toml:"log_dir"`
-	AllowSudo bool   `toml:"allow_sudo"`
+	User      string       `toml:"user"`
+	LogDir    string       `toml:"log_dir"`
+	AllowSudo bool         `toml:"allow_sudo"`
+	Docker    DockerConfig `toml:"docker"`
 }
 
 // GetConfigDir returns the path to the .buenosaires configuration directory.

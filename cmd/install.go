@@ -86,7 +86,8 @@ var installCmd = &cobra.Command{
 			LogDir: logDir,
 			Branch: branch,
 			Plugins: map[string]bool{
-				"shell": true,
+				"shell":  true,
+				"docker": true,
 			},
 			GUI: config.GUIConfig{
 				Enabled: enableGUI,
