@@ -1,8 +1,8 @@
-# Pull Request: Security Fixes, Code Improvements, and Enhanced JSON Structure
+# Pull Request: Security Fixes, Code Improvements, Enhanced JSON Structure, and Docker Plugin
 
 ## Summary
 
-This PR addresses all critical security vulnerabilities, modernizes the codebase, and enhances the JSON structure for better tracking and monitoring capabilities.
+This PR addresses all critical security vulnerabilities, modernizes the codebase, enhances the JSON structure for better tracking and monitoring capabilities, **and introduces a comprehensive Docker plugin for container-based GitOps workflows**.
 
 ### 🔒 Security Improvements
 
@@ -68,23 +68,77 @@ FilePerm = 0644
    - Added nil checks for Scripts map
    - Prevents potential panics
 
+### 🐳 NEW: Docker Plugin
+
+**Complete container-based GitOps automation!**
+
+The new Docker plugin extends Buenos Aires with powerful container deployment capabilities:
+
+**Features:**
+- 🔍 Automatic detection of Dockerfile/Containerfile in `Containers/` folder
+- ✅ Validation and linting with `hadolint` (optional)
+- 🏗️ Automatic Docker image building on commit
+- 🚀 Optional container deployment (configurable via `auto_run`)
+- 📊 Full status tracking with generation counters
+- 📝 Comprehensive build and deployment logging
+
+**Workflow:**
+1. Create `Containers/<name>/Dockerfile` in your repository
+2. Commit and push to monitored branch
+3. Buenos Aires automatically validates, builds, and optionally deploys
+4. Track status in `.buenosaires/status.json`
+
+**Configuration:**
+```toml
+[docker]
+enabled = true       # Enable Docker plugin
+auto_run = false     # Auto-start containers (disabled for safety)
+default_tag = "latest"
+image_prefix = ""    # Optional: "mycompany/"
+```
+
+**Image Naming:**
+- `Containers/webapp/Dockerfile` → `webapp:latest`
+- With prefix: `mycompany/webapp:latest`
+
+**Security:**
+- `auto_run` defaults to `false` for safety
+- Full audit trail for all builds
+- Separate status tracking for containers
+- Supports both Dockerfile and Containerfile formats
+
+See **[DOCKER_PLUGIN.md](./DOCKER_PLUGIN.md)** for complete documentation with examples, API reference, troubleshooting, and security best practices.
+
 ### 📈 Changes Overview
 
+**Commits:**
+- Security fixes and code improvements
+- Enhanced JSON structure
+- Docker plugin implementation
+- Comprehensive documentation
+
+**Files Changed:**
 ```
-8 files changed, 339 insertions(+), 47 deletions(-)
+16 files changed, 1477 insertions(+), 52 deletions(-)
 ```
 
 **Modified Files:**
-- `cmd/install.go` - Enhanced input validation
-- `cmd/run.go` - Security fixes, resource management
+- `cmd/install.go` - Enhanced input validation, Docker plugin support
+- `cmd/run.go` - Security fixes, resource management, Docker integration
 - `internal/status/status.go` - Enhanced JSON structure, thread safety
 - `internal/web/server.go` - Path traversal fix
+- `internal/config/config.go` - Docker configuration support
 - `internal/config/config_test.go` - Test improvements
 - `internal/web/server_test.go` - Test modernization
 - `plugins/shell/shell_test.go` - Test updates
+- `README.md` - Docker plugin documentation
+- `config.toml.example` - Docker configuration examples
 
 **New Files:**
-- `IMPROVEMENTS.md` - Comprehensive documentation of all changes
+- `plugins/docker/docker.go` - Docker plugin implementation
+- `plugins/docker/docker_test.go` - Docker plugin tests
+- `IMPROVEMENTS.md` - Security and code improvements documentation
+- `DOCKER_PLUGIN.md` - Complete Docker plugin documentation
 - `PR_DESCRIPTION.md` - This file (can be deleted after PR creation)
 
 ## Testing
