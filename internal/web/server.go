@@ -1,8 +1,11 @@
+// Package web provides a simple HTTP server for viewing script execution logs.
+// It serves two main endpoints:
+//   - / : Lists all available log files
+//   - /logs/{filename} : Displays the contents of a specific log file
 package web
 
 import (
 	"html/template"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -10,10 +13,12 @@ import (
 	"strings"
 )
 
+// logDir stores the directory path where log files are located.
 var (
 	logDir string
 )
 
+// HTML templates for rendering the web interface.
 const (
 	listTemplate = `
 <!DOCTYPE html>
@@ -44,9 +49,14 @@ const (
 </html>`
 )
 
-// StartServer starts the web server on the given address.
+// StartServer starts the HTTP server on the specified address.
+// It serves the log listing page and individual log file viewers.
+// Parameters:
+//   - addr: The address to listen on (e.g., ":8080")
+//   - lDir: The directory containing log files
 func StartServer(addr, lDir string) {
 	logDir = lDir
+	// Register HTTP handlers
 	http.HandleFunc("/", handleList)
 	http.HandleFunc("/logs/", handleView)
 
@@ -56,13 +66,15 @@ func StartServer(addr, lDir string) {
 	}
 }
 
+// handleList handles requests to the root path and displays a list of all log files.
 func handleList(w http.ResponseWriter, r *http.Request) {
-	files, err := ioutil.ReadDir(logDir)
+	files, err := os.ReadDir(logDir)
 	if err != nil {
 		http.Error(w, "Failed to read log directory", http.StatusInternalServerError)
 		return
 	}
 
+	// Filter for .log files only
 	var logFiles []string
 	for _, file := range files {
 		if !file.IsDir() && strings.HasSuffix(file.Name(), ".log") {
@@ -81,16 +93,20 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleView handles requests to view a specific log file.
+// It extracts the filename from the URL path and displays its contents.
 func handleView(w http.ResponseWriter, r *http.Request) {
 	logName := strings.TrimPrefix(r.URL.Path, "/logs/")
 	logPath := filepath.Join(logDir, logName)
 
+	// Check if the log file exists
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		http.NotFound(w, r)
 		return
 	}
 
-	content, err := ioutil.ReadFile(logPath)
+	// Read the log file contents
+	content, err := os.ReadFile(logPath)
 	if err != nil {
 		http.Error(w, "Failed to read log file", http.StatusInternalServerError)
 		return

@@ -1,8 +1,8 @@
+// Package cmd provides the command-line interface for Buenos Aires.
 package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,18 +21,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// runCmd implements the main monitoring loop that watches a Git repository
+// for new shell scripts and executes them after validation.
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run the buenosaires monitor",
 	Long:  `This command starts the buenosaires monitor, which watches a repository for new shell scripts and executes them.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Load global config
+		// Load the global configuration from ~/.buenosaires/config.toml
 		globalConfig, err := config.LoadGlobalConfig()
 		if err != nil {
 			log.Fatalf("Failed to load global config: %v", err)
 		}
 
-		// Load status file
+		// Load the status file that tracks script execution history
 		status, err := status.LoadStatus(".")
 		if err != nil {
 			log.Fatalf("Failed to load status file: %v", err)
@@ -44,7 +46,7 @@ var runCmd = &cobra.Command{
 			go web.StartServer(addr, globalConfig.LogDir)
 		}
 
-		// Open the current repository
+		// Open the Git repository in the current directory
 		repo, err := git.PlainOpen(".")
 		if err != nil {
 			log.Fatalf("Failed to open repository: %v", err)
@@ -64,6 +66,7 @@ var runCmd = &cobra.Command{
 
 		log.Printf("Starting to monitor branch '%s'", globalConfig.Branch)
 
+		// Main monitoring loop - polls the repository every 10 seconds
 		for {
 			// Fetch the latest changes from the remote
 			err := repo.Fetch(&git.FetchOptions{})
@@ -83,7 +86,7 @@ var runCmd = &cobra.Command{
 
 			latestCommitHash := branchRef.Hash()
 
-			// If the commit hash has changed, check for new scripts
+			// Process new commits if the hash has changed
 			if latestCommitHash != lastCommitHash {
 				log.Printf("New commit detected: %s", latestCommitHash.String())
 
@@ -146,11 +149,12 @@ var runCmd = &cobra.Command{
 							continue
 						}
 
-						log.Printf("New shell script found: %s", scriptName)
-						status.UpdateScriptStatus(scriptName, "pending", "skipped", "pending", "pending")
-						status.SaveStatus(".")
+					log.Printf("New shell script found: %s", scriptName)
+					// Initialize the script status as pending
+					status.UpdateScriptStatus(scriptName, "pending", "skipped", "pending", "pending")
+					status.SaveStatus(".")
 
-						// Get the file content
+					// Retrieve the file content from the Git tree
 						file, err := latestTree.File(scriptName)
 						if err != nil {
 							log.Printf("Failed to get file from tree: %v", err)
@@ -162,8 +166,8 @@ var runCmd = &cobra.Command{
 							continue
 						}
 
-						// Create a temporary file to execute
-						tmpfile, err := ioutil.TempFile("", "script-*.sh")
+					// Create a temporary file to store the script for validation and execution
+					tmpfile, err := os.CreateTemp("", "script-*.sh")
 						if err != nil {
 							log.Printf("Failed to create temporary file: %v", err)
 							continue
@@ -177,15 +181,15 @@ var runCmd = &cobra.Command{
 						}
 						tmpfile.Close()
 
-						// Lint and validate the script
-						plugin := shell.ShellPlugin{}
-						lintOutput, err := plugin.LintAndValidate(tmpfile.Name())
-						if err != nil {
-							log.Printf("Script validation failed for %s: %v\n%s", scriptName, err, lintOutput)
-							status.UpdateScriptStatus(scriptName, "failure", "skipped", "pending", "failure")
-							status.SaveStatus(".")
-							continue // Skip invalid scripts
-						}
+					// Validate the script using shellcheck and syntax checking
+					plugin := shell.ShellPlugin{}
+					lintOutput, err := plugin.LintAndValidate(tmpfile.Name())
+					if err != nil {
+						log.Printf("Script validation failed for %s: %v\n%s", scriptName, err, lintOutput)
+						status.UpdateScriptStatus(scriptName, "failure", "skipped", "pending", "failure")
+						status.SaveStatus(".")
+						continue // Skip execution of invalid scripts
+					}
 						log.Printf("Script validation successful for %s:\n%s", scriptName, lintOutput)
 						status.UpdateScriptStatus(scriptName, "success", "skipped", "pending", "pending")
 						status.SaveStatus(".")
@@ -201,8 +205,8 @@ var runCmd = &cobra.Command{
 							status.SaveStatus(".")
 						}
 
-						// Log the output
-						logDir := repoConfig.LogDir
+					// Write the combined lint and execution output to a log file
+					logDir := repoConfig.LogDir
 						if logDir == "" {
 							logDir = globalConfig.LogDir
 						}
@@ -212,7 +216,7 @@ var runCmd = &cobra.Command{
 							}
 							logFile := filepath.Join(logDir, fmt.Sprintf("%s.log", filepath.Base(scriptName)))
 							logContent := fmt.Sprintf("--- LINT OUTPUT ---\n%s\n--- EXECUTION OUTPUT ---\n%s", lintOutput, execOutput)
-							err := ioutil.WriteFile(logFile, []byte(logContent), 0644)
+							err := os.WriteFile(logFile, []byte(logContent), 0644)
 							if err != nil {
 								log.Printf("Failed to write log file: %v", err)
 							}
@@ -220,14 +224,17 @@ var runCmd = &cobra.Command{
 					}
 				}
 
-				lastCommitHash = latestCommitHash
-			}
+			lastCommitHash = latestCommitHash
+		}
 
-			time.Sleep(10 * time.Second) // Poll every 10 seconds
+		// Wait before polling again
+		time.Sleep(10 * time.Second)
 		}
 	},
 }
 
+// isNewShellScript checks if a Git change represents a newly added shell script.
+// It returns true only if the change is an insert operation and the file has a .sh extension.
 func isNewShellScript(change *object.Change) bool {
 	action, err := change.Action()
 	if err != nil {
@@ -236,6 +243,7 @@ func isNewShellScript(change *object.Change) bool {
 	return action == merkletrie.Insert && strings.HasSuffix(change.To.Name, ".sh")
 }
 
+// init registers the run command with the root command.
 func init() {
 	rootCmd.AddCommand(runCmd)
 }
