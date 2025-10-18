@@ -28,6 +28,7 @@ type GlobalConfig struct {
 
 // PluginConfig holds configuration specific to a plugin.
 type PluginConfig struct {
+	Enabled      bool   `toml:"enabled"`
 	FolderToScan string `toml:"folder_to_scan"`
 }
 
