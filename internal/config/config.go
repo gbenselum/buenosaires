@@ -26,13 +26,18 @@ type GlobalConfig struct {
 	GUI          GUIConfig `toml:"gui"`           // Web GUI configuration
 }
 
+// PluginConfig holds configuration specific to a plugin.
+type PluginConfig struct {
+	FolderToScan string `toml:"folder_to_scan"`
+}
+
 // RepoConfig holds configuration specific to a repository.
 // This is stored in the repository's config.toml file and overrides global settings.
 type RepoConfig struct {
-	User      string          `toml:"user"`       // User to run scripts as (overrides global)
-	LogDir    string          `toml:"log_dir"`    // Log directory (overrides global)
-	AllowSudo bool            `toml:"allow_sudo"` // Whether scripts can use sudo
-	Plugins   map[string]bool `toml:"plugins"`    // Enabled plugins (e.g., "shell")
+	User      string                  `toml:"user"`       // User to run scripts as (overrides global)
+	LogDir    string                  `toml:"log_dir"`    // Log directory (overrides global)
+	AllowSudo bool                    `toml:"allow_sudo"` // Whether scripts can use sudo
+	Plugins   map[string]PluginConfig `toml:"plugins"`    // Per-plugin configuration
 }
 
 // GetConfigDir returns the path to the .buenosaires configuration directory in the user's home.
