@@ -36,6 +36,14 @@ var installCmd = &cobra.Command{
 		branch, _ := reader.ReadString('\n')
 		branch = strings.TrimSpace(branch)
 
+		// Prompt for the repository to scan
+		fmt.Print("Enter the repository to scan (default: https://github.com/gbenselum/buenosaires_test): ")
+		repoURL, _ := reader.ReadString('\n')
+		repoURL = strings.TrimSpace(repoURL)
+		if repoURL == "" {
+			repoURL = "https://github.com/gbenselum/buenosaires_test"
+		}
+
 		// Prompt for Web GUI configuration
 		fmt.Print("Enable Web GUI? (y/n): ")
 		enableGUIStr, _ := reader.ReadString('\n')
@@ -52,9 +60,10 @@ var installCmd = &cobra.Command{
 
 		// Create the global configuration object
 		cfg := config.GlobalConfig{
-			User:   user,
-			LogDir: logDir,
-			Branch: branch,
+			User:          user,
+			LogDir:        logDir,
+			Branch:        branch,
+			RepositoryURL: repoURL,
 			GUI: config.GUIConfig{
 				Enabled: enableGUI,
 				Port:    port,

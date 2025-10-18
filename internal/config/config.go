@@ -19,11 +19,12 @@ type GUIConfig struct {
 // GlobalConfig holds the global configuration stored in ~/.buenosaires/config.toml.
 // This configuration applies as the default for all repositories.
 type GlobalConfig struct {
-	User         string    `toml:"user"`          // Default user for running scripts
-	LogDir       string    `toml:"log_dir"`       // Default directory for storing logs
-	Branch       string    `toml:"branch"`        // Git branch to monitor
-	SyncInterval int       `toml:"sync_interval"` // Time in seconds between syncs
-	GUI          GUIConfig `toml:"gui"`           // Web GUI configuration
+	User          string    `toml:"user"`
+	LogDir        string    `toml:"log_dir"`
+	Branch        string    `toml:"branch"`
+	SyncInterval  int       `toml:"sync_interval"`
+	GUI           GUIConfig `toml:"gui"`
+	RepositoryURL string    `toml:"repository_url"`
 }
 
 // PluginConfig holds configuration specific to a plugin.

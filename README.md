@@ -29,6 +29,7 @@ This will prompt you for the following information:
 - **Username**: The default user for running scripts.
 - **Log Directory**: The default directory for storing logs.
 - **Branch**: The Git branch to monitor for new scripts (e.g., `main` or `master`).
+- **Repository URL**: The URL of the repository to scan.
 
 This will create a configuration file at `~/.buenosaires/config.toml`.
 
