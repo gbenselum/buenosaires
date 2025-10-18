@@ -114,3 +114,23 @@ docker run -it --rm \
 Buenos Aires keeps track of the scripts it has processed in a `.buenosaires/status.json` file in the root of your repository. This file contains the status of each script, including its linting, testing, and execution status. This file is automatically created and updated by the `run` command.
 
 The `.buenosaires` directory is included in the `.gitignore` file, so the status file will not be committed to your repository.
+
+## Asset Tracking
+
+Each plugin is responsible for tracking its assets in a JSON file. An asset is any file or script that the plugin manages. The asset JSON file contains metadata about the asset, such as its generation, last run time, and test and linting status.
+
+The following is an example of the asset JSON format for the shell plugin:
+
+```json
+{
+  "generation": 1,
+  "last_run": "2024-10-18T15:50:36.166157Z",
+  "lint_passed": true,
+  "tests_passed": true,
+  "event": "Linting completed without errors. Tests passed.",
+  "user": "testuser",
+  "run_duration": "1.2s",
+  "status": "success",
+  "commit_hash": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"
+}
+```

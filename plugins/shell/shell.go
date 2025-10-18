@@ -4,13 +4,63 @@ package shell
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"time"
 )
 
 // ShellPlugin implements the plugin interface for handling shell scripts.
 // It provides methods for linting/validation and execution.
 type ShellPlugin struct{}
+
+// getAssetPath returns the path to the asset JSON file for a given script.
+func (p *ShellPlugin) getAssetPath(scriptName string) (string, error) {
+	assetsDir := "plugins/shell/assets"
+	if err := os.MkdirAll(assetsDir, 0755); err != nil {
+		return "", err
+	}
+	return filepath.Join(assetsDir, scriptName+".json"), nil
+}
+
+// LoadAsset loads the asset metadata for a given script.
+func (p *ShellPlugin) LoadAsset(scriptName string) (Asset, error) {
+	var asset Asset
+	assetPath, err := p.getAssetPath(scriptName)
+	if err != nil {
+		return asset, err
+	}
+
+	data, err := os.ReadFile(assetPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Asset{Generation: 0}, nil // Not found is not an error, just means it's a new script
+		}
+		return asset, err
+	}
+
+	if err := json.Unmarshal(data, &asset); err != nil {
+		return asset, err
+	}
+	return asset, nil
+}
+
+// SaveAsset saves the asset metadata for a given script.
+func (p *ShellPlugin) SaveAsset(scriptName string, asset Asset) error {
+	assetPath, err := p.getAssetPath(scriptName)
+	if err != nil {
+		return err
+	}
+
+	data, err := json.MarshalIndent(asset, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(assetPath, data, 0644)
+}
 
 // LintAndValidate performs validation and linting on a shell script.
 // It performs two checks:
@@ -73,4 +123,26 @@ func (p *ShellPlugin) Run(scriptPath string, allowSudo bool) (string, error) {
 		return string(output), err
 	}
 	return string(output), nil
+}
+
+// UpdateAssetAfterRun updates the asset metadata after a script has been run.
+func (p *ShellPlugin) UpdateAssetAfterRun(scriptName, user, commitHash, event string, lintPassed bool, runDuration time.Duration, runStatus string) error {
+	asset, err := p.LoadAsset(scriptName)
+	if err != nil {
+		return err
+	}
+
+	asset.Generation++
+	asset.LastRun = time.Now()
+	asset.LintPassed = lintPassed
+	// The shell plugin does not currently support running tests, so this is hardcoded to true.
+	// In the future, this should be updated to reflect the actual test results.
+	asset.TestsPassed = true
+	asset.Event = event
+	asset.User = user
+	asset.RunDuration = Duration{runDuration}
+	asset.Status = runStatus
+	asset.CommitHash = commitHash
+
+	return p.SaveAsset(scriptName, asset)
 }

@@ -68,14 +68,15 @@ var runCmd = &cobra.Command{
 
 		// Main monitoring loop - polls the repository every 10 seconds
 		for {
+			syncInterval := time.Duration(globalConfig.SyncInterval) * time.Second
+			if globalConfig.SyncInterval == 0 {
+				syncInterval = 180 * time.Second
+			}
+
 			// Fetch the latest changes from the remote
 			err := repo.Fetch(&git.FetchOptions{})
 			if err != nil && err != git.NoErrAlreadyUpToDate {
 				log.Printf("Failed to fetch from remote: %v", err)
-				syncInterval := time.Duration(globalConfig.SyncInterval) * time.Second
-				if globalConfig.SyncInterval == 0 {
-					syncInterval = 180 * time.Second
-				}
 				time.Sleep(syncInterval)
 				continue
 			}
@@ -84,10 +85,6 @@ var runCmd = &cobra.Command{
 			branchRef, err := repo.Reference(branchRefName, true)
 			if err != nil {
 				log.Printf("Failed to get branch reference: %v", err)
-				syncInterval := time.Duration(globalConfig.SyncInterval) * time.Second
-				if globalConfig.SyncInterval == 0 {
-					syncInterval = 180 * time.Second
-				}
 				time.Sleep(syncInterval)
 				continue
 			}
@@ -193,10 +190,12 @@ var runCmd = &cobra.Command{
 							// Validate the script using shellcheck and syntax checking
 							plugin := shell.ShellPlugin{}
 							lintOutput, err := plugin.LintAndValidate(tmpfile.Name())
+							lintPassed := err == nil
 							if err != nil {
 								log.Printf("Script validation failed for %s: %v\n%s", scriptName, err, lintOutput)
 								status.UpdateScriptStatus(scriptName, "failure", "skipped", "pending", "failure")
 								status.SaveStatus(".")
+								plugin.UpdateAssetAfterRun(scriptName, repoConfig.User, latestCommitHash.String(), lintOutput, lintPassed, 0, "failure")
 								continue // Skip execution of invalid scripts
 							}
 							log.Printf("Script validation successful for %s:\n%s", scriptName, lintOutput)
@@ -204,15 +203,20 @@ var runCmd = &cobra.Command{
 							status.SaveStatus(".")
 
 							// Execute the script
+							startTime := time.Now()
 							execOutput, err := plugin.Run(tmpfile.Name(), repoConfig.AllowSudo)
+							runDuration := time.Since(startTime)
+							runStatus := "success"
 							if err != nil {
 								log.Printf("Failed to execute script %s: %v", scriptName, err)
 								status.UpdateScriptStatus(scriptName, "success", "skipped", "failure", "failure")
 								status.SaveStatus(".")
+								runStatus = "failure"
 							} else {
 								status.UpdateScriptStatus(scriptName, "success", "skipped", "success", "success")
 								status.SaveStatus(".")
 							}
+							plugin.UpdateAssetAfterRun(scriptName, repoConfig.User, latestCommitHash.String(), execOutput, lintPassed, runDuration, runStatus)
 
 							// Write the combined lint and execution output to a log file
 							logDir := repoConfig.LogDir
@@ -238,11 +242,11 @@ var runCmd = &cobra.Command{
 		}
 
 		// Wait before polling again
-		syncInterval := time.Duration(globalConfig.SyncInterval) * time.Second
 		if globalConfig.SyncInterval == 0 {
-			syncInterval = 180 * time.Second
+			time.Sleep(180 * time.Second)
+		} else {
+			time.Sleep(time.Duration(globalConfig.SyncInterval) * time.Second)
 		}
-		time.Sleep(syncInterval)
 		}
 	},
 }
