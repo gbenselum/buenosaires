@@ -49,7 +49,17 @@ var runCmd = &cobra.Command{
 		// Open the Git repository in the current directory
 		repo, err := git.PlainOpen(".")
 		if err != nil {
-			log.Fatalf("Failed to open repository: %v", err)
+			if err == git.ErrRepositoryNotExists {
+				log.Printf("Cloning repository from %s", globalConfig.RepositoryURL)
+				repo, err = git.PlainClone(".", false, &git.CloneOptions{
+					URL: globalConfig.RepositoryURL,
+				})
+				if err != nil {
+					log.Fatalf("Failed to clone repository: %v", err)
+				}
+			} else {
+				log.Fatalf("Failed to open repository: %v", err)
+			}
 		}
 
 		// Get the reference for the branch to monitor
@@ -74,9 +84,15 @@ var runCmd = &cobra.Command{
 			}
 
 			// Fetch the latest changes from the remote
-			err := repo.Fetch(&git.FetchOptions{})
+			w, err := repo.Worktree()
+			if err != nil {
+				log.Printf("Failed to get worktree: %v", err)
+				time.Sleep(syncInterval)
+				continue
+			}
+			err = w.Pull(&git.PullOptions{RemoteName: "origin"})
 			if err != nil && err != git.NoErrAlreadyUpToDate {
-				log.Printf("Failed to fetch from remote: %v", err)
+				log.Printf("Failed to pull from remote: %v", err)
 				time.Sleep(syncInterval)
 				continue
 			}
