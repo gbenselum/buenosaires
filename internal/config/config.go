@@ -19,19 +19,20 @@ type GUIConfig struct {
 // GlobalConfig holds the global configuration stored in ~/.buenosaires/config.toml.
 // This configuration applies as the default for all repositories.
 type GlobalConfig struct {
-	User    string          `toml:"user"`    // Default user for running scripts
-	LogDir  string          `toml:"log_dir"` // Default directory for storing logs
-	Branch  string          `toml:"branch"`  // Git branch to monitor
-	Plugins map[string]bool `toml:"plugins"` // Enabled plugins (e.g., "shell")
-	GUI     GUIConfig       `toml:"gui"`     // Web GUI configuration
+	User         string    `toml:"user"`          // Default user for running scripts
+	LogDir       string    `toml:"log_dir"`       // Default directory for storing logs
+	Branch       string    `toml:"branch"`        // Git branch to monitor
+	SyncInterval int       `toml:"sync_interval"` // Time in seconds between syncs
+	GUI          GUIConfig `toml:"gui"`           // Web GUI configuration
 }
 
 // RepoConfig holds configuration specific to a repository.
 // This is stored in the repository's config.toml file and overrides global settings.
 type RepoConfig struct {
-	User      string `toml:"user"`       // User to run scripts as (overrides global)
-	LogDir    string `toml:"log_dir"`    // Log directory (overrides global)
-	AllowSudo bool   `toml:"allow_sudo"` // Whether scripts can use sudo
+	User      string          `toml:"user"`       // User to run scripts as (overrides global)
+	LogDir    string          `toml:"log_dir"`    // Log directory (overrides global)
+	AllowSudo bool            `toml:"allow_sudo"` // Whether scripts can use sudo
+	Plugins   map[string]bool `toml:"plugins"`    // Enabled plugins (e.g., "shell")
 }
 
 // GetConfigDir returns the path to the .buenosaires configuration directory in the user's home.
