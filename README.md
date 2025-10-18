@@ -36,17 +36,35 @@ This will create a configuration file at `~/.buenosaires/config.toml`.
 
 To use Buenos Aires to monitor a repository, you first need to create a `config.toml` file in the root of your repository. This file allows you to override the global settings and configure repository-specific behavior.
 
-Here's an example `config.toml`:
+### Configuration Options
+
+The `config.toml` file has the following sections:
+
+#### Global Settings
+
+These settings apply to all plugins and override the global configuration in `~/.buenosaires/config.toml`.
+
+-   `user`: The user to run the scripts as.
+-   `log_dir`: The directory to save logs to, relative to the repository root.
+-   `allow_sudo`: Whether to allow scripts to be run with sudo.
+
+#### Plugin Configuration
+
+Each plugin has its own configuration section, which is defined by `[plugins.<plugin_name>]`. For example, the shell plugin is configured under `[plugins.shell]`.
+
+-   `folder_to_scan`: The folder to scan for new scripts. If not specified, it defaults to `./<plugin_name>`.
+
+### Example `config.toml`
+
+Here's an example `config.toml` that enables the shell plugin and configures it to scan for scripts in the `scripts` folder:
 
 ```toml
-# The user to run the scripts as.
 user = "default"
-
-# The directory to save logs to, relative to the repository root.
 log_dir = "logs"
-
-# Whether to allow scripts to be run with sudo.
 allow_sudo = false
+
+[plugins.shell]
+folder_to_scan = "scripts"
 ```
 
 Once you've configured your repository, you can start the monitor by running the following command from the root of your repository:

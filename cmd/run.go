@@ -146,9 +146,13 @@ var runCmd = &cobra.Command{
 				}
 
 				// Check for new .sh files
-				if repoConfig.Plugins["shell"] {
+				if pluginConfig, ok := repoConfig.Plugins["shell"]; ok {
+					folderToScan := pluginConfig.FolderToScan
+					if folderToScan == "" {
+						folderToScan = "shell"
+					}
 					for _, change := range changes {
-						if isNewShellScript(change) {
+						if isNewShellScript(change, folderToScan) {
 							scriptName := change.To.Name
 							if s, ok := status.Scripts[scriptName]; ok && s.OverallStatus == "success" {
 								log.Printf("Script %s already processed successfully, skipping.", scriptName)
@@ -253,12 +257,12 @@ var runCmd = &cobra.Command{
 
 // isNewShellScript checks if a Git change represents a newly added shell script.
 // It returns true only if the change is an insert operation and the file has a .sh extension.
-func isNewShellScript(change *object.Change) bool {
+func isNewShellScript(change *object.Change, folderToScan string) bool {
 	action, err := change.Action()
 	if err != nil {
 		return false
 	}
-	return action == merkletrie.Insert && strings.HasSuffix(change.To.Name, ".sh")
+	return action == merkletrie.Insert && strings.HasSuffix(change.To.Name, ".sh") && strings.HasPrefix(change.To.Name, folderToScan+"/")
 }
 
 // init registers the run command with the root command.
