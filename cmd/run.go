@@ -72,7 +72,11 @@ var runCmd = &cobra.Command{
 			err := repo.Fetch(&git.FetchOptions{})
 			if err != nil && err != git.NoErrAlreadyUpToDate {
 				log.Printf("Failed to fetch from remote: %v", err)
-				time.Sleep(10 * time.Second)
+				syncInterval := time.Duration(globalConfig.SyncInterval) * time.Second
+				if globalConfig.SyncInterval == 0 {
+					syncInterval = 180 * time.Second
+				}
+				time.Sleep(syncInterval)
 				continue
 			}
 
@@ -80,7 +84,11 @@ var runCmd = &cobra.Command{
 			branchRef, err := repo.Reference(branchRefName, true)
 			if err != nil {
 				log.Printf("Failed to get branch reference: %v", err)
-				time.Sleep(10 * time.Second)
+				syncInterval := time.Duration(globalConfig.SyncInterval) * time.Second
+				if globalConfig.SyncInterval == 0 {
+					syncInterval = 180 * time.Second
+				}
+				time.Sleep(syncInterval)
 				continue
 			}
 
@@ -141,84 +149,86 @@ var runCmd = &cobra.Command{
 				}
 
 				// Check for new .sh files
-				for _, change := range changes {
-					if isNewShellScript(change) {
-						scriptName := change.To.Name
-						if s, ok := status.Scripts[scriptName]; ok && s.OverallStatus == "success" {
-							log.Printf("Script %s already processed successfully, skipping.", scriptName)
-							continue
-						}
-
-					log.Printf("New shell script found: %s", scriptName)
-					// Initialize the script status as pending
-					status.UpdateScriptStatus(scriptName, "pending", "skipped", "pending", "pending")
-					status.SaveStatus(".")
-
-					// Retrieve the file content from the Git tree
-						file, err := latestTree.File(scriptName)
-						if err != nil {
-							log.Printf("Failed to get file from tree: %v", err)
-							continue
-						}
-						content, err := file.Contents()
-						if err != nil {
-							log.Printf("Failed to get file contents: %v", err)
-							continue
-						}
-
-					// Create a temporary file to store the script for validation and execution
-					tmpfile, err := os.CreateTemp("", "script-*.sh")
-						if err != nil {
-							log.Printf("Failed to create temporary file: %v", err)
-							continue
-						}
-						defer os.Remove(tmpfile.Name())
-
-						if _, err := tmpfile.Write([]byte(content)); err != nil {
-							log.Printf("Failed to write to temporary file: %v", err)
-							tmpfile.Close()
-							continue
-						}
-						tmpfile.Close()
-
-					// Validate the script using shellcheck and syntax checking
-					plugin := shell.ShellPlugin{}
-					lintOutput, err := plugin.LintAndValidate(tmpfile.Name())
-					if err != nil {
-						log.Printf("Script validation failed for %s: %v\n%s", scriptName, err, lintOutput)
-						status.UpdateScriptStatus(scriptName, "failure", "skipped", "pending", "failure")
-						status.SaveStatus(".")
-						continue // Skip execution of invalid scripts
-					}
-						log.Printf("Script validation successful for %s:\n%s", scriptName, lintOutput)
-						status.UpdateScriptStatus(scriptName, "success", "skipped", "pending", "pending")
-						status.SaveStatus(".")
-
-						// Execute the script
-						execOutput, err := plugin.Run(tmpfile.Name(), repoConfig.AllowSudo)
-						if err != nil {
-							log.Printf("Failed to execute script %s: %v", scriptName, err)
-							status.UpdateScriptStatus(scriptName, "success", "skipped", "failure", "failure")
-							status.SaveStatus(".")
-						} else {
-							status.UpdateScriptStatus(scriptName, "success", "skipped", "success", "success")
-							status.SaveStatus(".")
-						}
-
-					// Write the combined lint and execution output to a log file
-					logDir := repoConfig.LogDir
-						if logDir == "" {
-							logDir = globalConfig.LogDir
-						}
-						if logDir != "" {
-							if _, err := os.Stat(logDir); os.IsNotExist(err) {
-								os.MkdirAll(logDir, 0755)
+				if repoConfig.Plugins["shell"] {
+					for _, change := range changes {
+						if isNewShellScript(change) {
+							scriptName := change.To.Name
+							if s, ok := status.Scripts[scriptName]; ok && s.OverallStatus == "success" {
+								log.Printf("Script %s already processed successfully, skipping.", scriptName)
+								continue
 							}
-							logFile := filepath.Join(logDir, fmt.Sprintf("%s.log", filepath.Base(scriptName)))
-							logContent := fmt.Sprintf("--- LINT OUTPUT ---\n%s\n--- EXECUTION OUTPUT ---\n%s", lintOutput, execOutput)
-							err := os.WriteFile(logFile, []byte(logContent), 0644)
+
+							log.Printf("New shell script found: %s", scriptName)
+							// Initialize the script status as pending
+							status.UpdateScriptStatus(scriptName, "pending", "skipped", "pending", "pending")
+							status.SaveStatus(".")
+
+							// Retrieve the file content from the Git tree
+							file, err := latestTree.File(scriptName)
 							if err != nil {
-								log.Printf("Failed to write log file: %v", err)
+								log.Printf("Failed to get file from tree: %v", err)
+								continue
+							}
+							content, err := file.Contents()
+							if err != nil {
+								log.Printf("Failed to get file contents: %v", err)
+								continue
+							}
+
+							// Create a temporary file to store the script for validation and execution
+							tmpfile, err := os.CreateTemp("", "script-*.sh")
+							if err != nil {
+								log.Printf("Failed to create temporary file: %v", err)
+								continue
+							}
+							defer os.Remove(tmpfile.Name())
+
+							if _, err := tmpfile.Write([]byte(content)); err != nil {
+								log.Printf("Failed to write to temporary file: %v", err)
+								tmpfile.Close()
+								continue
+							}
+							tmpfile.Close()
+
+							// Validate the script using shellcheck and syntax checking
+							plugin := shell.ShellPlugin{}
+							lintOutput, err := plugin.LintAndValidate(tmpfile.Name())
+							if err != nil {
+								log.Printf("Script validation failed for %s: %v\n%s", scriptName, err, lintOutput)
+								status.UpdateScriptStatus(scriptName, "failure", "skipped", "pending", "failure")
+								status.SaveStatus(".")
+								continue // Skip execution of invalid scripts
+							}
+							log.Printf("Script validation successful for %s:\n%s", scriptName, lintOutput)
+							status.UpdateScriptStatus(scriptName, "success", "skipped", "pending", "pending")
+							status.SaveStatus(".")
+
+							// Execute the script
+							execOutput, err := plugin.Run(tmpfile.Name(), repoConfig.AllowSudo)
+							if err != nil {
+								log.Printf("Failed to execute script %s: %v", scriptName, err)
+								status.UpdateScriptStatus(scriptName, "success", "skipped", "failure", "failure")
+								status.SaveStatus(".")
+							} else {
+								status.UpdateScriptStatus(scriptName, "success", "skipped", "success", "success")
+								status.SaveStatus(".")
+							}
+
+							// Write the combined lint and execution output to a log file
+							logDir := repoConfig.LogDir
+							if logDir == "" {
+								logDir = globalConfig.LogDir
+							}
+							if logDir != "" {
+								if _, err := os.Stat(logDir); os.IsNotExist(err) {
+									os.MkdirAll(logDir, 0755)
+								}
+								logFile := filepath.Join(logDir, fmt.Sprintf("%s.log", filepath.Base(scriptName)))
+								logContent := fmt.Sprintf("--- LINT OUTPUT ---\n%s\n--- EXECUTION OUTPUT ---\n%s", lintOutput, execOutput)
+								err := os.WriteFile(logFile, []byte(logContent), 0644)
+								if err != nil {
+									log.Printf("Failed to write log file: %v", err)
+								}
 							}
 						}
 					}
@@ -228,7 +238,11 @@ var runCmd = &cobra.Command{
 		}
 
 		// Wait before polling again
-		time.Sleep(10 * time.Second)
+		syncInterval := time.Duration(globalConfig.SyncInterval) * time.Second
+		if globalConfig.SyncInterval == 0 {
+			syncInterval = 180 * time.Second
+		}
+		time.Sleep(syncInterval)
 		}
 	},
 }

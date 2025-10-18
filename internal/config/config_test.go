@@ -23,9 +23,6 @@ func TestSaveAndLoadGlobalConfig(t *testing.T) {
 	expectedConfig := GlobalConfig{
 		User:   "testuser",
 		LogDir: "/tmp/logs",
-		Plugins: map[string]bool{
-			"shell": true,
-		},
 	}
 
 	// Save the config

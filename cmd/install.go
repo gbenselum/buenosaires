@@ -55,9 +55,6 @@ var installCmd = &cobra.Command{
 			User:   user,
 			LogDir: logDir,
 			Branch: branch,
-			Plugins: map[string]bool{
-				"shell": true, // Shell plugin is enabled by default
-			},
 			GUI: config.GUIConfig{
 				Enabled: enableGUI,
 				Port:    port,
