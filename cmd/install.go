@@ -1,3 +1,4 @@
+// Package cmd provides the command-line interface for Buenos Aires.
 package cmd
 
 import (
@@ -11,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// installCmd handles the interactive installation and configuration process.
+// It prompts the user for configuration values and saves them to the global config file.
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install and configure buenosaires",
@@ -18,22 +21,27 @@ var installCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		reader := bufio.NewReader(os.Stdin)
 
+		// Prompt for username - this will be the default user for running scripts
 		fmt.Print("Enter your username: ")
 		user, _ := reader.ReadString('\n')
 		user = strings.TrimSpace(user)
 
+		// Prompt for log directory - where script execution logs will be saved
 		fmt.Print("Enter the folder to save logs: ")
 		logDir, _ := reader.ReadString('\n')
 		logDir = strings.TrimSpace(logDir)
 
+		// Prompt for branch to monitor - typically "main" or "master"
 		fmt.Print("Enter the branch to monitor (e.g., main): ")
 		branch, _ := reader.ReadString('\n')
 		branch = strings.TrimSpace(branch)
 
+		// Prompt for Web GUI configuration
 		fmt.Print("Enable Web GUI? (y/n): ")
 		enableGUIStr, _ := reader.ReadString('\n')
 		enableGUI := strings.TrimSpace(strings.ToLower(enableGUIStr)) == "y"
 
+		// If Web GUI is enabled, prompt for port number
 		var port int
 		if enableGUI {
 			fmt.Print("Enter the port for the Web GUI (e.g., 9099): ")
@@ -42,12 +50,13 @@ var installCmd = &cobra.Command{
 			fmt.Sscanf(portStr, "%d", &port)
 		}
 
+		// Create the global configuration object
 		cfg := config.GlobalConfig{
 			User:   user,
 			LogDir: logDir,
 			Branch: branch,
 			Plugins: map[string]bool{
-				"shell": true,
+				"shell": true, // Shell plugin is enabled by default
 			},
 			GUI: config.GUIConfig{
 				Enabled: enableGUI,
@@ -55,6 +64,7 @@ var installCmd = &cobra.Command{
 			},
 		}
 
+		// Save the configuration to the global config file
 		if err := config.SaveGlobalConfig(cfg); err != nil {
 			fmt.Println("Error saving configuration:", err)
 			return
@@ -64,6 +74,7 @@ var installCmd = &cobra.Command{
 	},
 }
 
+// init registers the install command with the root command.
 func init() {
 	rootCmd.AddCommand(installCmd)
 }

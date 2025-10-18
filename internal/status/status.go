@@ -1,3 +1,6 @@
+// Package status manages the execution status of shell scripts.
+// It tracks the lint, test, and run status for each script and persists
+// this information in a .buenosaires/status.json file within the repository.
 package status
 
 import (
@@ -7,35 +10,41 @@ import (
 	"time"
 )
 
+// Status constants for tracking script execution state.
 const (
-	StatusPending   = "pending"
-	StatusSuccess   = "success"
-	StatusFailure   = "failure"
-	StatusSkipped   = "skipped"
+	StatusPending = "pending" // Script is queued for processing
+	StatusSuccess = "success" // Script processed successfully
+	StatusFailure = "failure" // Script failed during processing
+	StatusSkipped = "skipped" // Script processing was skipped
 )
 
-// ScriptStatus represents the status of a single script.
+// ScriptStatus represents the execution status of a single shell script.
+// It tracks the outcome of lint, test, and run phases, along with a timestamp.
 type ScriptStatus struct {
-	LintStatus    string    `json:"lint_status"`
-	TestStatus    string    `json:"test_status"`
-	RunStatus     string    `json:"run_status"`
-	Timestamp     time.Time `json:"timestamp"`
-	OverallStatus string    `json:"overall_status"`
+	LintStatus    string    `json:"lint_status"`    // Result of linting (pending/success/failure)
+	TestStatus    string    `json:"test_status"`    // Result of testing (pending/success/failure/skipped)
+	RunStatus     string    `json:"run_status"`     // Result of execution (pending/success/failure)
+	Timestamp     time.Time `json:"timestamp"`      // When the status was last updated
+	OverallStatus string    `json:"overall_status"` // Overall result of all phases
 }
 
-// Status represents the overall status of all scripts in the repository.
+// Status represents the overall status tracking for all scripts in the repository.
+// It maps script names to their execution status.
 type Status struct {
 	Scripts map[string]ScriptStatus `json:"scripts"`
 }
 
-// getStatusFilePath returns the path to the status.json file.
+// getStatusFilePath returns the path to the status.json file within the repository.
+// The file is stored in the .buenosaires directory.
 func getStatusFilePath(repoPath string) string {
 	return filepath.Join(repoPath, ".buenosaires", "status.json")
 }
 
-// LoadStatus loads the status from the status.json file.
+// LoadStatus loads the status from the status.json file in the repository.
+// If the file doesn't exist, it returns a new empty Status object.
 func LoadStatus(repoPath string) (*Status, error) {
 	statusFilePath := getStatusFilePath(repoPath)
+	// If the status file doesn't exist yet, return an empty status
 	if _, err := os.Stat(statusFilePath); os.IsNotExist(err) {
 		return &Status{Scripts: make(map[string]ScriptStatus)}, nil
 	}
@@ -52,10 +61,12 @@ func LoadStatus(repoPath string) (*Status, error) {
 	return &status, nil
 }
 
-// SaveStatus saves the status to the status.json file.
+// SaveStatus persists the current status to the status.json file.
+// It creates the .buenosaires directory if it doesn't exist.
 func (s *Status) SaveStatus(repoPath string) error {
 	statusFilePath := getStatusFilePath(repoPath)
 	buenosairesDir := filepath.Dir(statusFilePath)
+	// Create the .buenosaires directory if it doesn't exist
 	if _, err := os.Stat(buenosairesDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(buenosairesDir, 0755); err != nil {
 			return err
@@ -70,7 +81,8 @@ func (s *Status) SaveStatus(repoPath string) error {
 	return os.WriteFile(statusFilePath, data, 0644)
 }
 
-// UpdateScriptStatus updates the status of a script.
+// UpdateScriptStatus updates the status of a specific script.
+// It creates a new ScriptStatus entry with the provided status values and current timestamp.
 func (s *Status) UpdateScriptStatus(scriptName, lintStatus, testStatus, runStatus, overallStatus string) {
 	s.Scripts[scriptName] = ScriptStatus{
 		LintStatus:    lintStatus,
