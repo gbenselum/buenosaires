@@ -146,7 +146,7 @@ var runCmd = &cobra.Command{
 				}
 
 				// Check for new .sh files
-				if pluginConfig, ok := repoConfig.Plugins["shell"]; ok {
+				if pluginConfig, ok := repoConfig.Plugins["shell"]; ok && pluginConfig.Enabled {
 					folderToScan := pluginConfig.FolderToScan
 					if folderToScan == "" {
 						folderToScan = "shell"

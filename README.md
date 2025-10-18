@@ -52,6 +52,7 @@ These settings apply to all plugins and override the global configuration in `~/
 
 Each plugin has its own configuration section, which is defined by `[plugins.<plugin_name>]`. For example, the shell plugin is configured under `[plugins.shell]`.
 
+-   `enabled`: A boolean to enable or disable the plugin.
 -   `folder_to_scan`: The folder to scan for new scripts. If not specified, it defaults to `./<plugin_name>`.
 
 ### Example `config.toml`
@@ -64,6 +65,7 @@ log_dir = "logs"
 allow_sudo = false
 
 [plugins.shell]
+enabled = true
 folder_to_scan = "scripts"
 ```
 
