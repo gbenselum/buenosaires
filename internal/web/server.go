@@ -99,6 +99,12 @@ func handleView(w http.ResponseWriter, r *http.Request) {
 	logName := strings.TrimPrefix(r.URL.Path, "/logs/")
 	logPath := filepath.Join(logDir, logName)
 
+	// Sanitize the file path to prevent directory traversal attacks
+	if !strings.HasPrefix(logPath, logDir) {
+		http.Error(w, "Invalid log file path", http.StatusBadRequest)
+		return
+	}
+
 	// Check if the log file exists
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		http.NotFound(w, r)
