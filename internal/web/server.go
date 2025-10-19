@@ -23,29 +23,81 @@ var (
 const (
 	listTemplate = `
 <!DOCTYPE html>
-<html>
+<html class="pf-v5-c-page">
 <head>
     <title>Logs</title>
+    <link rel="stylesheet" href="/internal/web/assets/patternfly.min.css">
 </head>
-<body>
-    <h1>Log Files</h1>
-    <ul>
-        {{range .}}
-        <li><a href="/logs/{{.}}">{{.}}</a></li>
-        {{end}}
-    </ul>
+<body class="pf-v5-c-page__body">
+    <div class="pf-v5-c-page__main" tabindex="-1">
+        <section class="pf-v5-c-page__main-section pf-m-light">
+            <div class="pf-v5-c-content">
+                <h1>Log Files</h1>
+            </div>
+        </section>
+        <section class="pf-v5-c-page__main-section">
+            <div class="pf-v5-l-gallery pf-m-gutter">
+                {{range .}}
+                <div class="pf-v5-l-gallery__item">
+                    <div class="pf-v5-c-card">
+                        <div class="pf-v5-c-card__body">
+                            <a href="/logs/{{.}}">{{.}}</a>
+                        </div>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </section>
+    </div>
 </body>
 </html>`
 
 	viewTemplate = `
 <!DOCTYPE html>
-<html>
+<html class="pf-v5-c-page">
 <head>
     <title>View Log</title>
+    <link rel="stylesheet" href="/internal/web/assets/patternfly.min.css">
 </head>
-<body>
-    <h1>Log: {{.Title}}</h1>
-    <pre>{{.Content}}</pre>
+<body class="pf-v5-c-page__body">
+    <div class="pf-v5-c-page__main" tabindex="-1">
+        <section class="pf-v5-c-page__main-section pf-m-light">
+            <div class="pf-v5-c-content">
+                <h1>Log: {{.Title}}</h1>
+            </div>
+        </section>
+        <section class="pf-v5-c-page__main-section">
+            <div class="pf-v5-c-card">
+                <div class="pf-v5-c-card__body">
+                    <pre>{{.Content}}</pre>
+                </div>
+            </div>
+            <div class="pf-v5-c-accordion">
+                <div class="pf-v5-c-accordion__toggle">
+                    <span class="pf-v5-c-accordion__toggle-text">Asset JSON</span>
+                </div>
+                <div class="pf-v5-c-accordion__expanded-content">
+                    <div class="pf-v5-c-accordion__expanded-content-body">
+                        <pre id="asset-json"></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const logName = '{{.Title}}';
+            // Fetch the asset JSON
+            fetch('/plugins/shell/assets/' + logName + '.json')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('asset-json').textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    console.error('Error fetching asset JSON:', error);
+                });
+        });
+    </script>
 </body>
 </html>`
 )
@@ -58,6 +110,7 @@ const (
 func StartServer(addr, lDir string) {
 	logDir = lDir
 	// Register HTTP handlers
+	http.Handle("/assets/", http.FileServer(http.Dir(".")))
 	http.HandleFunc("/", handleList)
 	http.HandleFunc("/logs/", handleView)
 

@@ -54,7 +54,7 @@ func TestHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedList := "<li><a href=\"/logs/script1.log\">script1.log</a></li>"
+	expectedList := `<a href="/logs/script1.log">script1.log</a>`
 	if !strings.Contains(string(body), expectedList) {
 		t.Errorf("handler returned unexpected body: got %v want %v",
 			string(body), expectedList)
@@ -73,7 +73,7 @@ func TestHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedView := "<pre>log content 1</pre>"
+	expectedView := `<pre>log content 1</pre>`
 	if !strings.Contains(string(body), expectedView) {
 		t.Errorf("handler returned unexpected body: got %v want %v",
 			string(body), expectedView)

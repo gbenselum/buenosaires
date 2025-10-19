@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -115,7 +116,7 @@ func LoadRepoConfig(repoPath string) (RepoConfig, error) {
 	var config RepoConfig
 	// Sanitize the repo path to prevent directory traversal
 	cleanRepoPath := filepath.Clean(repoPath)
-	if cleanRepoPath != repoPath || repoPath == ".." || repoPath == "." {
+	if strings.Contains(cleanRepoPath, "..") {
 		return config, fmt.Errorf("invalid repo path: %s", repoPath)
 	}
 	configFile := filepath.Join(cleanRepoPath, "config.toml")
