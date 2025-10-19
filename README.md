@@ -155,3 +155,18 @@ The following is an example of the asset JSON format for the shell plugin:
   "commit_hash": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"
 }
 ```
+
+## Web Interface
+
+Buenos Aires includes a web interface for viewing logs and asset metadata. The interface is built with [PatternFly](https://www.patternfly.org/) and provides a modern, user-friendly experience.
+
+To enable the web interface, you need to set `gui.enabled = true` in your global configuration file (`~/.buenosaires/config.toml`) and specify a port number. You can do this by running the `buenosaires install` command and answering "y" when prompted to enable the web GUI.
+
+Once enabled, the web interface will be available at `http://localhost:<port>`.
+
+### Features
+
+-   **Log Viewer**: View the output of your scripts in a clean, easy-to-read format.
+-   **Asset Viewer**: View the JSON metadata for each asset in a collapsible, easy-to-navigate accordion.
+
+![Web Interface Screenshot](https://i.imgur.com/example.png)
