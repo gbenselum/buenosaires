@@ -76,13 +76,14 @@ var runCmd = &cobra.Command{
 
 		log.Printf("Starting to monitor branch '%s'", globalConfig.Branch)
 
-		// Main monitoring loop - polls the repository every 10 seconds
-		for {
-			syncInterval := time.Duration(globalConfig.SyncInterval) * time.Second
-			if globalConfig.SyncInterval == 0 {
-				syncInterval = 180 * time.Second
-			}
+		// Calculate sync interval once
+		syncInterval := time.Duration(globalConfig.SyncInterval) * time.Second
+		if globalConfig.SyncInterval == 0 {
+			syncInterval = 180 * time.Second
+		}
 
+		// Main monitoring loop
+		for {
 			// Fetch the latest changes from the remote
 			w, err := repo.Worktree()
 			if err != nil {
@@ -176,97 +177,16 @@ var runCmd = &cobra.Command{
 							}
 
 							log.Printf("New shell script found: %s", scriptName)
-							// Initialize the script status as pending
-							status.UpdateScriptStatus(scriptName, "pending", "skipped", "pending", "pending")
-							status.SaveStatus(".")
-
-							// Retrieve the file content from the Git tree
-							file, err := latestTree.File(scriptName)
-							if err != nil {
-								log.Printf("Failed to get file from tree: %v", err)
-								continue
-							}
-							content, err := file.Contents()
-							if err != nil {
-								log.Printf("Failed to get file contents: %v", err)
-								continue
-							}
-
-							// Create a temporary file to store the script for validation and execution
-							tmpfile, err := os.CreateTemp("", "script-*.sh")
-							if err != nil {
-								log.Printf("Failed to create temporary file: %v", err)
-								continue
-							}
-							defer os.Remove(tmpfile.Name())
-
-							if _, err := tmpfile.Write([]byte(content)); err != nil {
-								log.Printf("Failed to write to temporary file: %v", err)
-								tmpfile.Close()
-								continue
-							}
-							tmpfile.Close()
-
-							// Validate the script using shellcheck and syntax checking
-							plugin := shell.ShellPlugin{}
-							lintOutput, err := plugin.LintAndValidate(tmpfile.Name())
-							lintPassed := err == nil
-							if err != nil {
-								log.Printf("Script validation failed for %s: %v\n%s", scriptName, err, lintOutput)
-								status.UpdateScriptStatus(scriptName, "failure", "skipped", "pending", "failure")
-								status.SaveStatus(".")
-								plugin.UpdateAssetAfterRun(scriptName, repoConfig.User, latestCommitHash.String(), lintOutput, lintPassed, 0, "failure")
-								continue // Skip execution of invalid scripts
-							}
-							log.Printf("Script validation successful for %s:\n%s", scriptName, lintOutput)
-							status.UpdateScriptStatus(scriptName, "success", "skipped", "pending", "pending")
-							status.SaveStatus(".")
-
-							// Execute the script
-							startTime := time.Now()
-							execOutput, err := plugin.Run(tmpfile.Name(), repoConfig.AllowSudo)
-							runDuration := time.Since(startTime)
-							runStatus := "success"
-							if err != nil {
-								log.Printf("Failed to execute script %s: %v", scriptName, err)
-								status.UpdateScriptStatus(scriptName, "success", "skipped", "failure", "failure")
-								status.SaveStatus(".")
-								runStatus = "failure"
-							} else {
-								status.UpdateScriptStatus(scriptName, "success", "skipped", "success", "success")
-								status.SaveStatus(".")
-							}
-							plugin.UpdateAssetAfterRun(scriptName, repoConfig.User, latestCommitHash.String(), execOutput, lintPassed, runDuration, runStatus)
-
-							// Write the combined lint and execution output to a log file
-							logDir := repoConfig.LogDir
-							if logDir == "" {
-								logDir = globalConfig.LogDir
-							}
-							if logDir != "" {
-								if _, err := os.Stat(logDir); os.IsNotExist(err) {
-									os.MkdirAll(logDir, 0755)
-								}
-								logFile := filepath.Join(logDir, fmt.Sprintf("%s.log", filepath.Base(scriptName)))
-								logContent := fmt.Sprintf("--- LINT OUTPUT ---\n%s\n--- EXECUTION OUTPUT ---\n%s", lintOutput, execOutput)
-								err := os.WriteFile(logFile, []byte(logContent), 0644)
-								if err != nil {
-									log.Printf("Failed to write log file: %v", err)
-								}
-							}
+							processScript(scriptName, latestTree, latestCommitHash, status, repoConfig, globalConfig)
 						}
 					}
 				}
 
-			lastCommitHash = latestCommitHash
-		}
+				lastCommitHash = latestCommitHash
+			}
 
-		// Wait before polling again
-		if globalConfig.SyncInterval == 0 {
-			time.Sleep(180 * time.Second)
-		} else {
-			time.Sleep(time.Duration(globalConfig.SyncInterval) * time.Second)
-		}
+			// Wait before polling again
+			time.Sleep(syncInterval)
 		}
 	},
 }
@@ -279,6 +199,96 @@ func isNewShellScript(change *object.Change, folderToScan string) bool {
 		return false
 	}
 	return action == merkletrie.Insert && strings.HasSuffix(change.To.Name, ".sh") && strings.HasPrefix(change.To.Name, folderToScan+"/")
+}
+
+// getSyncInterval returns the configured sync interval, defaulting to 180 seconds if not set.
+func getSyncInterval(config config.GlobalConfig) time.Duration {
+	if config.SyncInterval == 0 {
+		return 180 * time.Second
+	}
+	return time.Duration(config.SyncInterval) * time.Second
+}
+
+// processScript handles the complete lifecycle of a shell script: validation, execution, and logging.
+func processScript(scriptName string, latestTree *object.Tree, latestCommitHash plumbing.Hash, status *status.Status, repoConfig config.RepoConfig, globalConfig config.GlobalConfig) {
+	// Initialize the script status as pending
+	status.UpdateScriptStatus(scriptName, "pending", "skipped", "pending", "pending")
+	status.SaveStatus(".")
+
+	// Retrieve the file content from the Git tree
+	file, err := latestTree.File(scriptName)
+	if err != nil {
+		log.Printf("Failed to get file from tree: %v", err)
+		return
+	}
+	content, err := file.Contents()
+	if err != nil {
+		log.Printf("Failed to get file contents: %v", err)
+		return
+	}
+
+	// Create a temporary file to store the script for validation and execution
+	tmpfile, err := os.CreateTemp("", "script-*.sh")
+	if err != nil {
+		log.Printf("Failed to create temporary file: %v", err)
+		return
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.Write([]byte(content)); err != nil {
+		log.Printf("Failed to write to temporary file: %v", err)
+		tmpfile.Close()
+		return
+	}
+	tmpfile.Close()
+
+	// Validate the script using shellcheck and syntax checking
+	plugin := shell.ShellPlugin{}
+	lintOutput, err := plugin.LintAndValidate(tmpfile.Name())
+	lintPassed := err == nil
+	if err != nil {
+		log.Printf("Script validation failed for %s: %v\n%s", scriptName, err, lintOutput)
+		status.UpdateScriptStatus(scriptName, "failure", "skipped", "pending", "failure")
+		status.SaveStatus(".")
+		plugin.UpdateAssetAfterRun(scriptName, repoConfig.User, latestCommitHash.String(), lintOutput, lintPassed, 0, "failure")
+		return // Skip execution of invalid scripts
+	}
+	log.Printf("Script validation successful for %s:\n%s", scriptName, lintOutput)
+	status.UpdateScriptStatus(scriptName, "success", "skipped", "pending", "pending")
+	status.SaveStatus(".")
+
+	// Execute the script
+	startTime := time.Now()
+	execOutput, err := plugin.Run(tmpfile.Name(), repoConfig.AllowSudo)
+	runDuration := time.Since(startTime)
+	runStatus := "success"
+	if err != nil {
+		log.Printf("Failed to execute script %s: %v", scriptName, err)
+		status.UpdateScriptStatus(scriptName, "success", "skipped", "failure", "failure")
+		status.SaveStatus(".")
+		runStatus = "failure"
+	} else {
+		status.UpdateScriptStatus(scriptName, "success", "skipped", "success", "success")
+		status.SaveStatus(".")
+	}
+	plugin.UpdateAssetAfterRun(scriptName, repoConfig.User, latestCommitHash.String(), execOutput, lintPassed, runDuration, runStatus)
+
+	// Write the combined lint and execution output to a log file
+	logDir := repoConfig.LogDir
+	if logDir == "" {
+		logDir = globalConfig.LogDir
+	}
+	if logDir != "" {
+		if _, err := os.Stat(logDir); os.IsNotExist(err) {
+			os.MkdirAll(logDir, 0755)
+		}
+		logFile := filepath.Join(logDir, fmt.Sprintf("%s.log", filepath.Base(scriptName)))
+		logContent := fmt.Sprintf("--- LINT OUTPUT ---\n%s\n--- EXECUTION OUTPUT ---\n%s", lintOutput, execOutput)
+		err := os.WriteFile(logFile, []byte(logContent), 0644)
+		if err != nil {
+			log.Printf("Failed to write log file: %v", err)
+		}
+	}
 }
 
 // init registers the run command with the root command.

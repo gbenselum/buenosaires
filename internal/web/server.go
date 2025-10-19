@@ -97,10 +97,17 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 // It extracts the filename from the URL path and displays its contents.
 func handleView(w http.ResponseWriter, r *http.Request) {
 	logName := strings.TrimPrefix(r.URL.Path, "/logs/")
-	logPath := filepath.Join(logDir, logName)
+	
+	// Additional validation to prevent directory traversal
+	if strings.Contains(logName, "..") || strings.Contains(logName, "/") || strings.Contains(logName, "\\") {
+		http.Error(w, "Invalid log file name", http.StatusBadRequest)
+		return
+	}
+	
+	logPath := filepath.Clean(filepath.Join(logDir, logName))
 
 	// Sanitize the file path to prevent directory traversal attacks
-	if !strings.HasPrefix(logPath, logDir) {
+	if !strings.HasPrefix(logPath, filepath.Clean(logDir)) {
 		http.Error(w, "Invalid log file path", http.StatusBadRequest)
 		return
 	}
