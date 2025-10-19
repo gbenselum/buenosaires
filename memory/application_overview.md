@@ -4,7 +4,7 @@ The project uses GitHub Actions as a pipeline to build and test.
 
 The sync interval for repository polling is configurable in the global `config.toml` via `sync_interval` and defaults to 180 seconds.
 
-The application has a web GUI for viewing logs, which can be enabled and configured in the global `config.toml`.
+The application has a web GUI for viewing logs, which can be enabled and configured in the global `config.toml`. The UI is built with PatternFly.
 
 Do not add SAST tools like Snyk or SonarQube to the CI pipeline, as they are handled by GitHub.
 
