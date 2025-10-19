@@ -1,7 +1,7 @@
 # Buenos Aires
 
 [![CI](https://github.com/gbenselum/buenosaires/actions/workflows/ci.yml/badge.svg)](https://github.com/gbenselum/buenosaires/actions/workflows/ci.yml)
-[![Snyk Security](https://snyk.io/test/github/gbenselum/buenosaires/badge.svg)](https://snyk.io/test/github/gbenselum/buenosaires)
+[![Snyk Security](https://snyk.io/test/github/gbenselum/buenosaires/main/badge.svg)](https://snyk.io/test/github/gbenselum/buenosaires)
 [![SonarQube](https://sonarcloud.io/api/project_badges/measure?project=gbenselum_buenosaires&metric=alert_status)](https://sonarcloud.io/project/overview?id=gbenselum_buenosaires)
 ![Buenos Aires GitOps Logo](buenosaires_logo.png)
 
