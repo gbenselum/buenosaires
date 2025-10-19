@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -40,7 +41,7 @@ type Status struct {
 func getStatusFilePath(repoPath string) (string, error) {
 	// Sanitize the repo path to prevent directory traversal
 	cleanRepoPath := filepath.Clean(repoPath)
-	if cleanRepoPath != repoPath || repoPath == ".." || repoPath == "." {
+	if strings.Contains(cleanRepoPath, "..") {
 		return "", fmt.Errorf("invalid repo path: %s", repoPath)
 	}
 	return filepath.Join(cleanRepoPath, ".buenosaires", "status.json"), nil
