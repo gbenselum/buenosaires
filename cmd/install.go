@@ -55,7 +55,10 @@ var installCmd = &cobra.Command{
 			fmt.Print("Enter the port for the Web GUI (e.g., 9099): ")
 			portStr, _ := reader.ReadString('\n')
 			portStr = strings.TrimSpace(portStr)
-			fmt.Sscanf(portStr, "%d", &port)
+			if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
+				fmt.Println("Invalid port number, defaulting to 9099")
+				port = 9099
+			}
 		}
 
 		// Create the global configuration object
