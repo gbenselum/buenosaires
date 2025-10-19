@@ -5,6 +5,7 @@ package status
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -36,19 +37,28 @@ type Status struct {
 
 // getStatusFilePath returns the path to the status.json file within the repository.
 // The file is stored in the .buenosaires directory.
-func getStatusFilePath(repoPath string) string {
-	return filepath.Join(repoPath, ".buenosaires", "status.json")
+func getStatusFilePath(repoPath string) (string, error) {
+	// Sanitize the repo path to prevent directory traversal
+	cleanRepoPath := filepath.Clean(repoPath)
+	if cleanRepoPath != repoPath || repoPath == ".." || repoPath == "." {
+		return "", fmt.Errorf("invalid repo path: %s", repoPath)
+	}
+	return filepath.Join(cleanRepoPath, ".buenosaires", "status.json"), nil
 }
 
 // LoadStatus loads the status from the status.json file in the repository.
 // If the file doesn't exist, it returns a new empty Status object.
 func LoadStatus(repoPath string) (*Status, error) {
-	statusFilePath := getStatusFilePath(repoPath)
+	statusFilePath, err := getStatusFilePath(repoPath)
+	if err != nil {
+		return nil, err
+	}
 	// If the status file doesn't exist yet, return an empty status
 	if _, err := os.Stat(statusFilePath); os.IsNotExist(err) {
 		return &Status{Scripts: make(map[string]ScriptStatus)}, nil
 	}
 
+	// #nosec G304
 	data, err := os.ReadFile(statusFilePath)
 	if err != nil {
 		return nil, err
@@ -64,11 +74,14 @@ func LoadStatus(repoPath string) (*Status, error) {
 // SaveStatus persists the current status to the status.json file.
 // It creates the .buenosaires directory if it doesn't exist.
 func (s *Status) SaveStatus(repoPath string) error {
-	statusFilePath := getStatusFilePath(repoPath)
+	statusFilePath, err := getStatusFilePath(repoPath)
+	if err != nil {
+		return err
+	}
 	buenosairesDir := filepath.Dir(statusFilePath)
 	// Create the .buenosaires directory if it doesn't exist
 	if _, err := os.Stat(buenosairesDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(buenosairesDir, 0755); err != nil {
+		if err := os.MkdirAll(buenosairesDir, 0750); err != nil {
 			return err
 		}
 	}
@@ -78,7 +91,7 @@ func (s *Status) SaveStatus(repoPath string) error {
 		return err
 	}
 
-	return os.WriteFile(statusFilePath, data, 0644)
+	return os.WriteFile(statusFilePath, data, 0600)
 }
 
 // UpdateScriptStatus updates the status of a specific script.

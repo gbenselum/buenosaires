@@ -19,10 +19,15 @@ type ShellPlugin struct{}
 // getAssetPath returns the path to the asset JSON file for a given script.
 func (p *ShellPlugin) getAssetPath(scriptName string) (string, error) {
 	assetsDir := "plugins/shell/assets"
-	if err := os.MkdirAll(assetsDir, 0755); err != nil {
+	if err := os.MkdirAll(assetsDir, 0750); err != nil {
 		return "", err
 	}
-	return filepath.Join(assetsDir, scriptName+".json"), nil
+	// Sanitize the script name to prevent directory traversal
+	cleanScriptName := filepath.Clean(scriptName)
+	if cleanScriptName != scriptName || scriptName == ".." || scriptName == "." {
+		return "", fmt.Errorf("invalid script name: %s", scriptName)
+	}
+	return filepath.Join(assetsDir, cleanScriptName+".json"), nil
 }
 
 // LoadAsset loads the asset metadata for a given script.
@@ -33,6 +38,7 @@ func (p *ShellPlugin) LoadAsset(scriptName string) (Asset, error) {
 		return asset, err
 	}
 
+	// #nosec G304
 	data, err := os.ReadFile(assetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -59,7 +65,7 @@ func (p *ShellPlugin) SaveAsset(scriptName string, asset Asset) error {
 		return err
 	}
 
-	return os.WriteFile(assetPath, data, 0644)
+	return os.WriteFile(assetPath, data, 0600)
 }
 
 // LintAndValidate performs validation and linting on a shell script.

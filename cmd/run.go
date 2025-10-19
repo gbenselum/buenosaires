@@ -213,7 +213,9 @@ func getSyncInterval(config config.GlobalConfig) time.Duration {
 func processScript(scriptName string, latestTree *object.Tree, latestCommitHash plumbing.Hash, status *status.Status, repoConfig config.RepoConfig, globalConfig config.GlobalConfig) {
 	// Initialize the script status as pending
 	status.UpdateScriptStatus(scriptName, "pending", "skipped", "pending", "pending")
-	status.SaveStatus(".")
+	if err := status.SaveStatus("."); err != nil {
+		log.Printf("Failed to save status: %v", err)
+	}
 
 	// Retrieve the file content from the Git tree
 	file, err := latestTree.File(scriptName)
@@ -237,10 +239,14 @@ func processScript(scriptName string, latestTree *object.Tree, latestCommitHash 
 
 	if _, err := tmpfile.Write([]byte(content)); err != nil {
 		log.Printf("Failed to write to temporary file: %v", err)
-		tmpfile.Close()
+		if err := tmpfile.Close(); err != nil {
+			log.Printf("Failed to close temporary file: %v", err)
+		}
 		return
 	}
-	tmpfile.Close()
+	if err := tmpfile.Close(); err != nil {
+		log.Printf("Failed to close temporary file: %v", err)
+	}
 
 	// Validate the script using shellcheck and syntax checking
 	plugin := shell.ShellPlugin{}
@@ -249,13 +255,19 @@ func processScript(scriptName string, latestTree *object.Tree, latestCommitHash 
 	if err != nil {
 		log.Printf("Script validation failed for %s: %v\n%s", scriptName, err, lintOutput)
 		status.UpdateScriptStatus(scriptName, "failure", "skipped", "pending", "failure")
-		status.SaveStatus(".")
-		plugin.UpdateAssetAfterRun(scriptName, repoConfig.User, latestCommitHash.String(), lintOutput, lintPassed, 0, "failure")
+		if err := status.SaveStatus("."); err != nil {
+			log.Printf("Failed to save status: %v", err)
+		}
+		if err := plugin.UpdateAssetAfterRun(scriptName, repoConfig.User, latestCommitHash.String(), lintOutput, lintPassed, 0, "failure"); err != nil {
+			log.Printf("Failed to update asset after run: %v", err)
+		}
 		return // Skip execution of invalid scripts
 	}
 	log.Printf("Script validation successful for %s:\n%s", scriptName, lintOutput)
 	status.UpdateScriptStatus(scriptName, "success", "skipped", "pending", "pending")
-	status.SaveStatus(".")
+	if err := status.SaveStatus("."); err != nil {
+		log.Printf("Failed to save status: %v", err)
+	}
 
 	// Execute the script
 	startTime := time.Now()
@@ -265,13 +277,19 @@ func processScript(scriptName string, latestTree *object.Tree, latestCommitHash 
 	if err != nil {
 		log.Printf("Failed to execute script %s: %v", scriptName, err)
 		status.UpdateScriptStatus(scriptName, "success", "skipped", "failure", "failure")
-		status.SaveStatus(".")
+		if err := status.SaveStatus("."); err != nil {
+			log.Printf("Failed to save status: %v", err)
+		}
 		runStatus = "failure"
 	} else {
 		status.UpdateScriptStatus(scriptName, "success", "skipped", "success", "success")
-		status.SaveStatus(".")
+		if err := status.SaveStatus("."); err != nil {
+			log.Printf("Failed to save status: %v", err)
+		}
 	}
-	plugin.UpdateAssetAfterRun(scriptName, repoConfig.User, latestCommitHash.String(), execOutput, lintPassed, runDuration, runStatus)
+	if err := plugin.UpdateAssetAfterRun(scriptName, repoConfig.User, latestCommitHash.String(), execOutput, lintPassed, runDuration, runStatus); err != nil {
+		log.Printf("Failed to update asset after run: %v", err)
+	}
 
 	// Write the combined lint and execution output to a log file
 	logDir := repoConfig.LogDir
@@ -280,12 +298,13 @@ func processScript(scriptName string, latestTree *object.Tree, latestCommitHash 
 	}
 	if logDir != "" {
 		if _, err := os.Stat(logDir); os.IsNotExist(err) {
-			os.MkdirAll(logDir, 0755)
+			if err := os.MkdirAll(logDir, 0750); err != nil {
+				log.Printf("Failed to create log directory: %v", err)
+			}
 		}
 		logFile := filepath.Join(logDir, fmt.Sprintf("%s.log", filepath.Base(scriptName)))
 		logContent := fmt.Sprintf("--- LINT OUTPUT ---\n%s\n--- EXECUTION OUTPUT ---\n%s", lintOutput, execOutput)
-		err := os.WriteFile(logFile, []byte(logContent), 0644)
-		if err != nil {
+		if err := os.WriteFile(logFile, []byte(logContent), 0600); err != nil {
 			log.Printf("Failed to write log file: %v", err)
 		}
 	}

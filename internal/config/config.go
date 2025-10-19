@@ -4,6 +4,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -92,12 +93,13 @@ func SaveGlobalConfig(config GlobalConfig) error {
 
 	// Create the configuration directory if it doesn't exist
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(configDir, 0755); err != nil {
+		if err := os.MkdirAll(configDir, 0750); err != nil {
 			return err
 		}
 	}
 
 	// Create the config file
+	// #nosec G304
 	file, err := os.Create(configFile)
 	if err != nil {
 		return err
@@ -111,7 +113,12 @@ func SaveGlobalConfig(config GlobalConfig) error {
 // Returns an error if the file cannot be read or parsed.
 func LoadRepoConfig(repoPath string) (RepoConfig, error) {
 	var config RepoConfig
-	configFile := filepath.Join(repoPath, "config.toml")
+	// Sanitize the repo path to prevent directory traversal
+	cleanRepoPath := filepath.Clean(repoPath)
+	if cleanRepoPath != repoPath || repoPath == ".." || repoPath == "." {
+		return config, fmt.Errorf("invalid repo path: %s", repoPath)
+	}
+	configFile := filepath.Join(cleanRepoPath, "config.toml")
 	if _, err := toml.DecodeFile(configFile, &config); err != nil {
 		return config, err
 	}

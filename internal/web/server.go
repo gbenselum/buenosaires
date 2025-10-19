@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // logDir stores the directory path where log files are located.
@@ -61,7 +62,13 @@ func StartServer(addr, lDir string) {
 	http.HandleFunc("/logs/", handleView)
 
 	log.Printf("Starting web server on %s", addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	server := &http.Server{
+		Addr:         addr,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Failed to start web server: %v", err)
 	}
 }
