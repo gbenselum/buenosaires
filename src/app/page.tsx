@@ -80,9 +80,9 @@ export default function Home() {
           { label: "Active Tasks", value: stats.activeTasks, icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10" },
           { label: "Success Rate", value: stats.successRate, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
           { label: "Failed Jobs", value: stats.failedJobs, icon: XCircle, color: "text-rose-500", bg: "bg-rose-500/10" },
-        ].map((stat, i) => (
+        ].map((stat) => (
           <div
-            key={i}
+            key={stat.label}
             className="p-6 rounded-3xl bg-card border border-border shadow-sm hover:shadow-md transition-all duration-300 group relative overflow-hidden"
           >
             <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full ${stat.bg} blur-2xl group-hover:scale-150 transition-transform duration-500`} />

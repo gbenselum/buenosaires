@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import fs from 'fs/promises';
+import fs from 'node:fs/promises';
 import { db } from '../db';
 
 vi.mock('fs/promises', () => ({

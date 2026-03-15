@@ -89,8 +89,16 @@ export default function Sidebar() {
       {/* Overlay for mobile */}
       {isOpen && (
         <div
+          role="button"
+          tabIndex={0}
           className="fixed inset-0 z-30 bg-background/40 backdrop-blur-md lg:hidden"
           onClick={() => setIsOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' || e.key === 'Enter') {
+              setIsOpen(false);
+            }
+          }}
+          aria-label="Close sidebar"
         />
       )}
     </>

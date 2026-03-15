@@ -1,6 +1,6 @@
 import simpleGit from 'simple-git';
-import path from 'path';
-import fs from 'fs/promises';
+import path from 'node:path';
+import fs from 'node:fs/promises';
 import { db } from './db';
 
 const REPOS_DIR = path.join(process.cwd(), 'repos');

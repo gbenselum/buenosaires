@@ -62,6 +62,15 @@ export default function TasksPage() {
         }
     };
 
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'success': return 'bg-emerald-500';
+            case 'failure': return 'bg-rose-500';
+            case 'pending': return 'bg-amber-500 animate-pulse';
+            default: return 'bg-border';
+        }
+    };
+
     return (
         <div className="space-y-10">
             <div className="flex items-center justify-between">
@@ -90,11 +99,7 @@ export default function TasksPage() {
                             className="group flex flex-col md:flex-row md:items-center gap-4 p-5 md:p-6 bg-card border border-border rounded-3xl hover:border-primary/40 hover:shadow-lg transition-all duration-300 relative overflow-hidden"
                         >
                             {/* Status Accent Bar */}
-                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                                task.status === 'success' ? 'bg-emerald-500' : 
-                                task.status === 'failure' ? 'bg-rose-500' : 
-                                task.status === 'pending' ? 'bg-amber-500 animate-pulse' : 'bg-border'
-                            }`} />
+                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${getStatusColor(task.status)}`} />
 
                             <div className="flex items-center gap-4 flex-1 min-w-0">
                                 <div className="p-3.5 rounded-2xl bg-accent text-primary group-hover:scale-110 transition-transform duration-300 border border-border shrink-0 shadow-xs">

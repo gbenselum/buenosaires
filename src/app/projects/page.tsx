@@ -158,8 +158,16 @@ export default function ProjectsPage() {
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-4">
                     <div 
+                        role="button"
+                        tabIndex={0}
                         className="fixed inset-0 bg-background/40 backdrop-blur-md" 
                         onClick={() => setIsModalOpen(false)} 
+                        onKeyDown={(e) => {
+                            if (e.key === 'Escape' || e.key === 'Enter') {
+                                setIsModalOpen(false);
+                            }
+                        }}
+                        aria-label="Close modal"
                     />
                     <div className="w-full max-w-lg bg-card border border-border rounded-[2.5rem] p-10 shadow-3xl relative z-10 animate-in fade-in zoom-in duration-300">
                         <div className="flex justify-between items-center mb-8">
@@ -174,8 +182,9 @@ export default function ProjectsPage() {
                         
                         <form onSubmit={handleAddProject} className="space-y-6">
                             <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Project Name</label>
+                                <label htmlFor="project-name" className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Project Name</label>
                                 <input
+                                    id="project-name"
                                     type="text"
                                     required
                                     placeholder="e.g. Production Cluster"
@@ -185,8 +194,9 @@ export default function ProjectsPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Repository URL</label>
+                                <label htmlFor="repo-url" className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Repository URL</label>
                                 <input
+                                    id="repo-url"
                                     type="text"
                                     required
                                     placeholder="https://github.com/..."
@@ -196,8 +206,9 @@ export default function ProjectsPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Default Branch</label>
+                                <label htmlFor="default-branch" className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Default Branch</label>
                                 <input
+                                    id="default-branch"
                                     type="text"
                                     required
                                     placeholder="main"
