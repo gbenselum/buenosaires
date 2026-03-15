@@ -157,10 +157,10 @@ export default function ProjectsPage() {
             {/* Add Project Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-4">
-                    <div 
-                        role="button"
+                    <button 
+                        type="button"
                         tabIndex={0}
-                        className="fixed inset-0 bg-background/40 backdrop-blur-md" 
+                        className="fixed inset-0 bg-background/40 backdrop-blur-md w-full h-full border-none cursor-default" 
                         onClick={() => setIsModalOpen(false)} 
                         onKeyDown={(e) => {
                             if (e.key === 'Escape' || e.key === 'Enter') {

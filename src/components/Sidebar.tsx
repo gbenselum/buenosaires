@@ -88,10 +88,10 @@ export default function Sidebar() {
 
       {/* Overlay for mobile */}
       {isOpen && (
-        <div
-          role="button"
+        <button
+          type="button"
           tabIndex={0}
-          className="fixed inset-0 z-30 bg-background/40 backdrop-blur-md lg:hidden"
+          className="fixed inset-0 z-30 bg-background/40 backdrop-blur-md lg:hidden w-full h-full border-none cursor-default"
           onClick={() => setIsOpen(false)}
           onKeyDown={(e) => {
             if (e.key === 'Escape' || e.key === 'Enter') {

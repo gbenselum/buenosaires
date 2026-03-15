@@ -1,9 +1,6 @@
-import { exec } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import { db } from './db';
-
-const execAsync = promisify(exec);
 const REPOS_DIR = path.join(process.cwd(), 'repos');
 
 export const runnerService = {
@@ -19,17 +16,40 @@ export const runnerService = {
         const startTime = Date.now();
 
         try {
-            const { stdout, stderr } = await execAsync(`bash "${scriptPath}"`);
+            const output = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+                const child = spawn('bash', [scriptPath], {
+                    env: { ...process.env, DEBIAN_FRONTEND: 'noninteractive' }
+                });
+
+                let stdout = '';
+                let stderr = '';
+
+                child.stdout.on('data', (data) => { stdout += data.toString(); });
+                child.stderr.on('data', (data) => { stderr += data.toString(); });
+
+                child.on('close', (code) => {
+                    if (code === 0) {
+                        resolve({ stdout, stderr });
+                    } else {
+                        reject(new Error(`Process exited with code ${code}\n${stderr}`));
+                    }
+                });
+
+                child.on('error', (err) => {
+                    reject(err);
+                });
+            });
+
             const duration = Date.now() - startTime;
 
             await db.addExecution(taskId, {
                 timestamp: new Date().toISOString(),
                 status: 'success',
-                output: stdout || stderr,
+                output: output.stdout || output.stderr,
                 duration,
             });
 
-            return { success: true, output: stdout };
+            return { success: true, output: output.stdout };
         } catch (error: unknown) {
             const duration = Date.now() - startTime;
             const message = error instanceof Error ? error.message : String(error);
