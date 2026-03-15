@@ -1,0 +1,10 @@
+services:
+  buenosaires:
+    build: .
+    image: buenosaires:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./repos:/app/repos
+      - ./db.json:/app/db.json
+    restart: unless-stopped

@@ -1,55 +1,65 @@
-# ---- Builder Stage ----
-# Use an official Go image as a parent image
-FROM golang:1.24-alpine AS builder
+FROM node:20-alpine AS base
 
-# Set the necessary environment variables for a static build
-ENV CGO_ENABLED=0
-ENV GOOS=linux
-
-# Set the working directory inside the container
+# Install dependencies only when needed
+FROM base AS deps
+# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy go mod and sum files to leverage Docker cache
-COPY go.mod go.sum ./
+# Install dependencies based on the preferred package manager
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-# Download all dependencies
-RUN go mod download
-
-# Copy the source code into the container
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build the Go application
-RUN go build -o /buenosaires main.go
+# Next.js collects completely anonymous telemetry data about general usage.
+# Learn more here: https://nextjs.org/telemetry
+# Uncomment the following line in case you want to disable telemetry during the build.
+ENV NEXT_TELEMETRY_DISABLED=1
 
+RUN npm run build
 
-# ---- Final Stage ----
-# Use a lightweight alpine image for the final container
-FROM alpine:latest
-
-# Install runtime dependencies required by the application and plugins
-# git: for repository operations
-# bash: for executing shell scripts
-# shellcheck: for linting shell scripts
-# sudo: to allow scripts to run with elevated privileges if configured
-RUN apk add --no-cache git bash shellcheck sudo
-
-# Copy the pre-built binary from the builder stage
-COPY --from=builder /buenosaires /usr/local/bin/buenosaires
-
-# Create a non-root user and group for security
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-# Allow the non-root user to run sudo commands without a password prompt.
-# This is necessary for the shell plugin's `allow_sudo` feature to work
-# in a non-interactive container environment.
-RUN echo "appuser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-# Switch to the non-root user
-USER appuser
-
-# Set the working directory in the container
+# Production image, copy all the files and run next
+FROM base AS runner
 WORKDIR /app
 
-# Set the entrypoint for the container. When the container runs, it will execute the 'buenosaires' binary.
-# Users can then pass commands like 'install' or 'run' to the container.
-ENTRYPOINT ["buenosaires"]
+ENV NODE_ENV=production
+# Uncomment the following line in case you want to disable telemetry during runtime.
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Automatically leverage output traces to reduce image size
+# https://nextjs.org/docs/advanced-features/output-file-tracing
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Install simple-git dependencies (git)
+RUN apk add --no-cache git bash
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT=3000
+# set hostname to localhost
+ENV HOSTNAME="0.0.0.0"
+
+# Create directory for repos and db.json with correct permissions
+# We need to do this before switching user or ensure user has permissions
+# Since we are already user nextjs, we need to ensure the volume mount points exist and are writable if possible,
+# but usually volumes are mounted at runtime.
+# However, for local persistence without volumes, we might want to ensure the directory exists.
+
+CMD ["node", "server.js"]

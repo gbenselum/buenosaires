@@ -1,172 +1,77 @@
-# Buenos Aires
+# Buenos Aires | GitOps Monitor
 
-[![CI](https://github.com/gbenselum/buenosaires/actions/workflows/ci.yml/badge.svg)](https://github.com/gbenselum/buenosaires/actions/workflows/ci.yml)
-[![Snyk Security](https://snyk.io/test/github/gbenselum/buenosaires/main/badge.svg)](https://snyk.io/test/github/gbenselum/buenosaires)
-[![SonarQube](https://sonarcloud.io/api/project_badges/measure?project=gbenselum_buenosaires&metric=alert_status)](https://sonarcloud.io/project/overview?id=gbenselum_buenosaires)
-![Buenos Aires GitOps Logo](buenosaires_logo.png)
+A modern, premium GitOps monitoring tool designed for clusters and infrastructure scripts. Built with Next.js 16, TailwindCSS v4, and featuring a state-of-the-art UI with full light and dark mode support.
 
-A `.snyk` file is included in this repository to allow for managing security policies, such as ignoring specific vulnerabilities. For more information, see the [Snyk documentation](https://docs.snyk.io/features/snyk-cli/policies/the-.snyk-file).
+![Buenos Aires Logo](buenosaires_logo.png)
 
-This project uses GitHub Actions to run a CI/CD pipeline that includes a SAST scan using Snyk. The pipeline is defined in the `.github/workflows/ci.yml` file.
+## 🌟 Features
 
-Buenos Aires is a Go-based tool for monitoring repositories and applying GitOps principles to your shell scripts. It watches a specified branch for new `.sh` files and executes them based on a set of configurable rules.
+-   **Dual Theme Support**: Modern Light and Dark modes with a premium, glassmorphic aesthetic.
+-   **Dynamic Dashboard**: Real-time overview of your environment with live stats (Total Projects, Active Tasks, Success Rate, Failed Jobs).
+-   **Automated Project Sync**: Effortlessly add and monitor multiple Git repositories with automatic `.sh` script detection.
+-   **Task Execution Engine**: Run infrastructure scripts directly from the UI with real-time status tracking and execution history.
+-   **Mobile Responsive**: Fully optimized sidebar and layout for monitoring on the go.
 
-## Installation
+## 🚀 Getting Started
 
-To install Buenos Aires, you'll need to have Go installed on your system. Then, you can use the following command to install the tool:
+### Local Installation
 
-```bash
-go install github.com/gbenselum/buenosaires@latest
-```
+Prerequisites: Node.js v20+, Git, Bash.
 
-After installing, you need to run the interactive setup to create the global configuration file:
+1.  **Install dependencies**:
+    ```bash
+    npm install
+    ```
 
-```bash
-buenosaires install
-```
+2.  **Run the development server**:
+    ```bash
+    npm run dev
+    ```
 
-This will prompt you for the following information:
-- **Username**: The default user for running scripts.
-- **Log Directory**: The default directory for storing logs.
-- **Branch**: The Git branch to monitor for new scripts (e.g., `main` or `master`).
-- **Repository URL**: The URL of the repository to scan.
+3.  **Open the app**:
+    Navigate to [http://localhost:3000](http://localhost:3000).
 
-This will create a configuration file at `~/.buenosaires/config.toml`.
+### Docker Deployment
 
-## Usage
+Buenos Aires is optimized for containerized environments.
 
-To use Buenos Aires to monitor a repository, you first need to create a `config.toml` file in the root of your repository. This file allows you to override the global settings and configure repository-specific behavior.
+#### Using Docker Compose (Recommended)
 
-### Configuration Options
+1.  **Run the application**:
+    ```bash
+    docker compose up -d
+    ```
 
-The `config.toml` file has the following sections:
+#### Using Docker CLI
 
-#### Global Settings
+1.  **Build the image**:
+    ```bash
+    docker build -t buenosaires .
+    ```
 
-These settings apply to all plugins and override the global configuration in `~/.buenosaires/config.toml`.
+2.  **Run the container**:
+    ```bash
+    docker run -p 3000:3000 \
+      -v $(pwd)/repos:/app/repos \
+      -v $(pwd)/db.json:/app/db.json \
+      buenosaires
+    ```
 
--   `user`: The user to run the scripts as.
--   `log_dir`: The directory to save logs to, relative to the repository root.
--   `allow_sudo`: Whether to allow scripts to be run with sudo.
+> [!CAUTION]
+> **Common Error: Do not mount your source directory over `/app`** (e.g., `-v $(pwd):/app`). 
+> The container contains a specialized production build that will be deleted/overwritten by your host source files if you do this, causing a `MODULE_NOT_FOUND` error.
 
-#### Plugin Configuration
+## 🛠 Tech Stack
 
-Each plugin has its own configuration section, which is defined by `[plugins.<plugin_name>]`. For example, the shell plugin is configured under `[plugins.shell]`.
+-   **Frontend**: Next.js 16 (App Router), React 19, TailwindCSS v4, Lucide React (Icons).
+-   **Theming**: `next-themes` for seamless light/dark transitions.
+-   **Backend**: Next.js API Routes (Server-side Git and Execution logic).
+-   **Persistence**: Local JSON-based database (`db.json`) for simplicity and speed.
+-   **Git Integration**: `simple-git` for repository synchronization.
 
--   `enabled`: A boolean to enable or disable the plugin.
--   `folder_to_scan`: The folder to scan for new scripts. If not specified, it defaults to `./<plugin_name>`.
+## 📂 Project Structure
 
-### Example `config.toml`
-
-Here's an example `config.toml` that enables the shell plugin and configures it to scan for scripts in the `scripts` folder:
-
-```toml
-user = "default"
-log_dir = "logs"
-allow_sudo = false
-
-[plugins.shell]
-enabled = true
-folder_to_scan = "scripts"
-```
-
-Once you've configured your repository, you can start the monitor by running the following command from the root of your repository:
-
-```bash
-buenosaires run
-```
-
-Buenos Aires will then start monitoring the branch you specified during installation. When a new commit is pushed to that branch, it will scan for any new `.sh` files.
-
-### GitOps Workflow
-
-1.  **Commit a new script**: Create a new shell script (e.g., `deploy.sh`) and commit it to your repository.
-2.  **Push to the monitored branch**: Push the commit to the branch that Buenos Aires is monitoring.
-3.  **Linting and Validation**: Buenos Aires will automatically detect the new script and perform a dry run to validate it. This includes:
-    -   **Syntax Check**: Using `bash -n` to check for syntax errors.
-    -   **Linting**: Using `shellcheck` to identify potential issues.
-4.  **Execution**: If the script passes the validation step, Buenos Aires will execute it using the shell plugin. The output of the script will be saved to the configured log directory.
-
-This workflow allows you to manage your infrastructure and deployments through Git, with the assurance that your scripts are validated before they are executed.
-
-## Running with Docker
-
-You can also run Buenos Aires in a Docker container. This is a convenient way to run the tool without having to install Go or other dependencies on your host machine.
-
-### Building the Docker Image
-
-To build the Docker image, run the following command from the root of the repository:
-
-```bash
-docker build -t buenosaires .
-```
-
-### Running the Container
-
-To run the `buenosaires` tool in a Docker container, you'll need to mount your repository and your global configuration file into the container.
-
-First, make sure you have run `buenosaires install` on your host machine to create the global configuration file at `~/.buenosaires/config.toml`.
-
-Then, you can run the container with the following command:
-
-```bash
-docker run -it --rm \
-  -v $(pwd):/app \
-  -v ~/.buenosaires:/home/appuser/.buenosaires \
-  buenosaires run
-```
-
-This command does the following:
--   `docker run -it --rm`: Runs the container in interactive mode and removes it when it exits.
--   `-v $(pwd):/app`: Mounts the current directory (your repository) into the `/app` directory in the container.
--   `-v ~/.buenosaires:/home/appuser/.buenosaires`: Mounts your global configuration directory into the container.
--   `buenosaires run`: Runs the `run` command inside the container.
-
-You can also run the `install` command in the container to create a new configuration file:
-
-```bash
-docker run -it --rm \
-  -v ~/.buenosaires:/home/appuser/.buenosaires \
-  buenosaires install
-```
-
-## Status Tracking
-
-Buenos Aires keeps track of the scripts it has processed in a `.buenosaires/status.json` file in the root of your repository. This file contains the status of each script, including its linting, testing, and execution status. This file is automatically created and updated by the `run` command.
-
-The `.buenosaires` directory is included in the `.gitignore` file, so the status file will not be committed to your repository.
-
-## Asset Tracking
-
-Each plugin is responsible for tracking its assets in a JSON file. An asset is any file or script that the plugin manages. The asset JSON file contains metadata about the asset, such as its generation, last run time, and test and linting status.
-
-The following is an example of the asset JSON format for the shell plugin:
-
-```json
-{
-  "generation": 1,
-  "last_run": "2024-10-18T15:50:36.166157Z",
-  "lint_passed": true,
-  "tests_passed": true,
-  "event": "Linting completed without errors. Tests passed.",
-  "user": "testuser",
-  "run_duration": "1.2s",
-  "status": "success",
-  "commit_hash": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"
-}
-```
-
-## Web Interface
-
-Buenos Aires includes a web interface for viewing logs and asset metadata. The interface is built with [PatternFly](https://www.patternfly.org/) and provides a modern, user-friendly experience.
-
-To enable the web interface, you need to set `gui.enabled = true` in your global configuration file (`~/.buenosaires/config.toml`) and specify a port number. You can do this by running the `buenosaires install` command and answering "y" when prompted to enable the web GUI.
-
-Once enabled, the web interface will be available at `http://localhost:<port>`.
-
-### Features
-
--   **Log Viewer**: View the output of your scripts in a clean, easy-to-read format.
--   **Asset Viewer**: View the JSON metadata for each asset in a collapsible, easy-to-navigate accordion.
-
-![Web Interface Screenshot](https://i.imgur.com/example.png)
+-   `/src/app`: Application routes and layout (Dashboard, Projects, Tasks, Settings).
+-   `/src/components`: Reusable UI components (Sidebar, ThemeToggle, ThemeProvider).
+-   `/src/lib`: Core services for Database, Git synchronization, and Task execution.
+-   `/repos`: Local storage for cloned Git repositories.
