@@ -18,18 +18,15 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: kubelabs/buenosaires/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install Dependencies
-        working-directory: kubelabs/buenosaires
         run: npm ci
 
       - name: Run Build
-        working-directory: kubelabs/buenosaires
         run: npm run build
 
       - name: Run Lint
-        working-directory: kubelabs/buenosaires
         run: npm run lint
 
   security:
