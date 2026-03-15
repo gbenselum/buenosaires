@@ -18,7 +18,11 @@ export const runnerService = {
         try {
             const output = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
                 const child = spawn('bash', [scriptPath], {
-                    env: { ...process.env, DEBIAN_FRONTEND: 'noninteractive' }
+                    env: { 
+                        ...process.env, 
+                        PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+                        DEBIAN_FRONTEND: 'noninteractive' 
+                    }
                 });
 
                 let stdout = '';
