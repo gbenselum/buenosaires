@@ -11,10 +11,10 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: 'npm'
@@ -34,10 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       
       - name: Run Snyk Open Source Scan
-        uses: snyk/actions/node@master
+        uses: snyk/actions/node@9adf32b1121593767fc3c057af55b55db032dc04 # master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -45,7 +45,7 @@ jobs:
           
       - name: Snyk Monitor (Main Branch Only)
         if: github.ref == 'refs/heads/main'
-        uses: snyk/actions/node@master
+        uses: snyk/actions/node@9adf32b1121593767fc3c057af55b55db032dc04 # master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -62,7 +62,7 @@ jobs:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
           
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@master
+        uses: SonarSource/sonarqube-scan-action@9598b8a83feef37de07f549027fab50ecffe6a6e # master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

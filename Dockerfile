@@ -51,6 +51,7 @@ EXPOSE 3000
 ENV PORT=3000
 # set hostname to localhost
 ENV HOSTNAME="0.0.0.0"
+ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 # Create directory for repos and db.json with correct permissions
 # We need to do this before switching user or ensure user has permissions
