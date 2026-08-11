@@ -1,1 +1,11 @@
+# Local state written by the monitor
 .buenosaires/
+
+# Per-plugin runtime assets (written locally, never committed)
+plugins/*/assets/
+
+# Script execution logs
+*.log
+
+# OS / editor noise
+.DS_Store

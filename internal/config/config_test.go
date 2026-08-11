@@ -12,12 +12,14 @@ func TestSaveAndLoadGlobalConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
 
 	// Override the home directory to use the temp directory
 	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	if err := os.Setenv("HOME", tmpDir); err != nil {
+		t.Fatalf("Failed to override HOME: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Setenv("HOME", originalHome) })
 
 	// Define a sample config
 	expectedConfig := GlobalConfig{

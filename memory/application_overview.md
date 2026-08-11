@@ -65,3 +65,19 @@ Each plugin must maintain a JSON file for every script or file it manages, refer
 The web server (`internal/web/server.go`) validates log file paths to prevent directory traversal attacks.
 
 The SonarQube project key is `gbenselum_buenosaires`.
+
+The project uses pre-commit hooks for local checks. Configuration lives in `.pre-commit-config.yaml` and `.golangci.yml`. Hooks cover golangci-lint, gosec, go test, shellcheck, and meta checks. A Makefile provides `make check`, `make lint`, `make sec`, `make test`, `make fmt`, `make hooks`.
+
+The CI pipeline (`.github/workflows/ci.yml`) runs go test, golangci-lint (v2.12.2), and gosec (v2.28.0) on pushes to main and pull requests.
+
+The monitor persists the last processed commit hash in `.buenosaires/status.json` (`last_commit` field). An empty `last_commit` triggers an initial sync that processes all existing scripts in the scanned folder. Modified scripts are always re-processed so fixes and new versions re-deploy.
+
+Sudo execution requires BOTH the global `~/.buenosaires/config.toml` `allow_sudo = true` AND the repository's `allow_sudo = true`. This is a host-operator security gate.
+
+Scripts are materialized at their real repository path (from the git tree, preserving committed file mode) before execution, so relative paths inside scripts resolve correctly.
+
+The web interface embeds the PatternFly stylesheet via `go:embed` and serves it at `/static/patternfly.min.css`. Asset JSON metadata is served at `/plugins/shell/assets/{name}.json`. Web server errors are logged, never fatal to the monitor.
+
+The `.gitignore` ignores `.buenosaires/`, `plugins/*/assets/`, `*.log`, and `.DS_Store`.
+
+Do not commit runtime artifacts (logs, status, assets) to the repository.

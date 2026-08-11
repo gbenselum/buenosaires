@@ -1,0 +1,27 @@
+# golangci-lint configuration (v2 format).
+# See: https://golangci-lint.run
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  # The "standard" set covers the classic correctness linters:
+  # errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    - misspell
+  settings:
+    govet:
+      # The "inline" analyzer produces false positives when the local
+      # toolchain is newer than the module's go directive (stdlib built
+      # with a newer compiler reports "cannot inline" noise).
+      disable:
+        - inline
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      simplify: true

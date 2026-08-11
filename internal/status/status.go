@@ -31,18 +31,41 @@ type ScriptStatus struct {
 }
 
 // Status represents the overall status tracking for all scripts in the repository.
-// It maps script names to their execution status.
+// It maps script names to their execution status and records the last commit
+// that was fully processed so the monitor can resume incrementally.
 type Status struct {
-	Scripts map[string]ScriptStatus `json:"scripts"`
+	Scripts    map[string]ScriptStatus `json:"scripts"`
+	LastCommit string                  `json:"last_commit,omitempty"` // Last processed commit hash (empty = initial sync)
+}
+
+// sanitizeRepoPath validates and normalizes a repository path, rejecting
+// absolute paths and directory traversal attempts. It returns the cleaned
+// relative path.
+func sanitizeRepoPath(repoPath string) (string, error) {
+	if repoPath == "" {
+		return "", fmt.Errorf("empty repo path")
+	}
+	clean := filepath.Clean(repoPath)
+	if filepath.IsAbs(clean) {
+		return "", fmt.Errorf("absolute repo path not allowed: %s", repoPath)
+	}
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("invalid repo path (traversal): %s", repoPath)
+	}
+	for _, part := range strings.Split(clean, string(filepath.Separator)) {
+		if part == ".." {
+			return "", fmt.Errorf("invalid repo path (traversal): %s", repoPath)
+		}
+	}
+	return clean, nil
 }
 
 // getStatusFilePath returns the path to the status.json file within the repository.
 // The file is stored in the .buenosaires directory.
 func getStatusFilePath(repoPath string) (string, error) {
-	// Sanitize the repo path to prevent directory traversal
-	cleanRepoPath := filepath.Clean(repoPath)
-	if strings.Contains(cleanRepoPath, "..") {
-		return "", fmt.Errorf("invalid repo path: %s", repoPath)
+	cleanRepoPath, err := sanitizeRepoPath(repoPath)
+	if err != nil {
+		return "", err
 	}
 	return filepath.Join(cleanRepoPath, ".buenosaires", "status.json"), nil
 }
@@ -68,6 +91,10 @@ func LoadStatus(repoPath string) (*Status, error) {
 	var status Status
 	if err := json.Unmarshal(data, &status); err != nil {
 		return nil, err
+	}
+	// Guard against a nil map when the file contains "scripts": null or {}.
+	if status.Scripts == nil {
+		status.Scripts = make(map[string]ScriptStatus)
 	}
 	return &status, nil
 }
@@ -98,6 +125,9 @@ func (s *Status) SaveStatus(repoPath string) error {
 // UpdateScriptStatus updates the status of a specific script.
 // It creates a new ScriptStatus entry with the provided status values and current timestamp.
 func (s *Status) UpdateScriptStatus(scriptName, lintStatus, testStatus, runStatus, overallStatus string) {
+	if s.Scripts == nil {
+		s.Scripts = make(map[string]ScriptStatus)
+	}
 	s.Scripts[scriptName] = ScriptStatus{
 		LintStatus:    lintStatus,
 		TestStatus:    testStatus,

@@ -1,0 +1,50 @@
+# Pre-commit hooks for Buenos Aires.
+# Install once with:  pre-commit install
+# Run manually with:  pre-commit run --all-files
+# See: https://pre-commit.com
+repos:
+  # Generic meta checks shared by every repository.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  # Go linting (govet, staticcheck, errcheck, unused, gofmt, ...).
+  # Uses the linters configured in .golangci.yml.
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.12.2
+    hooks:
+      - id: golangci-lint
+        args:
+          - --timeout=5m
+
+  # Local hooks that rely on the developer's toolchain.
+  - repo: local
+    hooks:
+      # Go security scanner.
+      - id: gosec
+        name: gosec (Go security scan)
+        entry: gosec ./...
+        language: system
+        pass_filenames: false
+        types: [go]
+
+      # Go unit tests. Run only when Go files change.
+      - id: go-test
+        name: go test
+        entry: go test ./...
+        language: system
+        pass_filenames: false
+        types: [go]
+
+      # Shell script static analysis.
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck -s bash
+        language: system
+        types: [shell]

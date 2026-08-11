@@ -27,6 +27,11 @@ type GlobalConfig struct {
 	SyncInterval  int       `toml:"sync_interval"`
 	GUI           GUIConfig `toml:"gui"`
 	RepositoryURL string    `toml:"repository_url"`
+	// AllowSudo is the host-operator gate for sudo execution. A repository's
+	// config.toml cannot enable sudo on its own; both this setting AND the
+	// repository's allow_sudo must be true for scripts to run with elevated
+	// privileges. This prevents a malicious repo from escalating privileges.
+	AllowSudo bool `toml:"allow_sudo"`
 }
 
 // PluginConfig holds configuration specific to a plugin.
@@ -105,19 +110,45 @@ func SaveGlobalConfig(config GlobalConfig) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
-	return toml.NewEncoder(file).Encode(config)
+	// Encode first, then close. Returning the close error ensures a failed
+	// flush is surfaced instead of silently losing the configuration.
+	if err := toml.NewEncoder(file).Encode(config); err != nil {
+		_ = file.Close()
+		return err
+	}
+	return file.Close()
+}
+
+// sanitizeRepoPath validates and normalizes a repository path, rejecting
+// absolute paths and directory traversal attempts. It returns the cleaned
+// relative path.
+func sanitizeRepoPath(repoPath string) (string, error) {
+	if repoPath == "" {
+		return "", fmt.Errorf("empty repo path")
+	}
+	clean := filepath.Clean(repoPath)
+	if filepath.IsAbs(clean) {
+		return "", fmt.Errorf("absolute repo path not allowed: %s", repoPath)
+	}
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("invalid repo path (traversal): %s", repoPath)
+	}
+	for _, part := range strings.Split(clean, string(filepath.Separator)) {
+		if part == ".." {
+			return "", fmt.Errorf("invalid repo path (traversal): %s", repoPath)
+		}
+	}
+	return clean, nil
 }
 
 // LoadRepoConfig loads the repository-specific configuration from config.toml in the repo directory.
 // Returns an error if the file cannot be read or parsed.
 func LoadRepoConfig(repoPath string) (RepoConfig, error) {
 	var config RepoConfig
-	// Sanitize the repo path to prevent directory traversal
-	cleanRepoPath := filepath.Clean(repoPath)
-	if strings.Contains(cleanRepoPath, "..") {
-		return config, fmt.Errorf("invalid repo path: %s", repoPath)
+	cleanRepoPath, err := sanitizeRepoPath(repoPath)
+	if err != nil {
+		return config, err
 	}
 	configFile := filepath.Join(cleanRepoPath, "config.toml")
 	if _, err := toml.DecodeFile(configFile, &config); err != nil {

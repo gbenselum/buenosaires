@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -17,17 +18,25 @@ import (
 type ShellPlugin struct{}
 
 // getAssetPath returns the path to the asset JSON file for a given script.
+// Script names include their folder prefix (e.g. "shell/deploy.sh"), so the
+// asset file is nested under a matching subdirectory
+// ("plugins/shell/assets/shell/deploy.sh.json").
 func (p *ShellPlugin) getAssetPath(scriptName string) (string, error) {
 	assetsDir := "plugins/shell/assets"
-	if err := os.MkdirAll(assetsDir, 0750); err != nil {
-		return "", err
-	}
-	// Sanitize the script name to prevent directory traversal
-	cleanScriptName := filepath.Clean(scriptName)
-	if cleanScriptName != scriptName || scriptName == ".." || scriptName == "." {
+	// Sanitize the script name to prevent directory traversal. Git tree
+	// paths are always relative and cannot contain ".." components.
+	if scriptName == "" || filepath.IsAbs(scriptName) || strings.Contains(scriptName, "..") {
 		return "", fmt.Errorf("invalid script name: %s", scriptName)
 	}
-	return filepath.Join(assetsDir, cleanScriptName+".json"), nil
+	assetPath := filepath.Join(assetsDir, scriptName+".json")
+	// Create the full directory chain for the asset (including the folder
+	// prefix subdirectory).
+	if dir := filepath.Dir(assetPath); dir != "." {
+		if err := os.MkdirAll(dir, 0750); err != nil {
+			return "", err
+		}
+	}
+	return assetPath, nil
 }
 
 // LoadAsset loads the asset metadata for a given script.
@@ -78,7 +87,9 @@ func (p *ShellPlugin) SaveAsset(scriptName string, asset Asset) error {
 func (p *ShellPlugin) LintAndValidate(scriptPath string) (string, error) {
 	var finalOutput bytes.Buffer
 
-	// Step 1: Syntax check using bash in no-execution mode
+	// Step 1: Syntax check using bash in no-execution mode.
+	// #nosec G204 -- scriptPath is passed as an argv argument, never through
+	// a shell, so no command injection is possible.
 	cmdBash := exec.Command("bash", "-n", scriptPath)
 	bashOutput, err := cmdBash.CombinedOutput()
 	finalOutput.Write(bashOutput)
@@ -87,7 +98,8 @@ func (p *ShellPlugin) LintAndValidate(scriptPath string) (string, error) {
 	}
 	finalOutput.WriteString("Syntax check passed.\n")
 
-	// Step 2: Run shellcheck for static analysis and best practices
+	// Step 2: Run shellcheck for static analysis and best practices.
+	// #nosec G204 -- see above.
 	cmdShellcheck := exec.Command("shellcheck", "-s", "bash", scriptPath)
 	shellcheckOutput, err := cmdShellcheck.CombinedOutput()
 	finalOutput.Write(shellcheckOutput)
@@ -116,14 +128,17 @@ func (p *ShellPlugin) LintAndValidate(scriptPath string) (string, error) {
 //
 // Returns the combined stdout and stderr output, and any execution error.
 func (p *ShellPlugin) Run(scriptPath string, allowSudo bool) (string, error) {
-	var cmd *exec.Cmd
-	// Execute with or without sudo based on configuration
+	// Execute with or without sudo based on configuration. scriptPath is
+	// passed as an argv argument (never through a shell), so no command
+	// injection is possible.
+	args := []string{"bash", scriptPath}
 	if allowSudo {
-		cmd = exec.Command("sudo", "bash", scriptPath)
-	} else {
-		cmd = exec.Command("bash", scriptPath)
+		args = append([]string{"sudo"}, args...)
 	}
 
+	// #nosec G204 -- executing repo-provided scripts is the entire purpose of
+	// this plugin; scriptPath is an argv argument, not a shell string.
+	cmd := exec.Command(args[0], args[1:]...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), err

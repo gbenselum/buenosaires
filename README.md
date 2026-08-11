@@ -49,6 +49,8 @@ These settings apply to all plugins and override the global configuration in `~/
 -   `log_dir`: The directory to save logs to, relative to the repository root.
 -   `allow_sudo`: Whether to allow scripts to be run with sudo.
 
+> **Security note**: `allow_sudo` in a repository's `config.toml` only takes effect if `allow_sudo = true` is also set in the **global** configuration (`~/.buenosaires/config.toml`). This is a host-operator gate: a repository committed by anyone cannot escalate privileges to root on its own.
+
 #### Plugin Configuration
 
 Each plugin has its own configuration section, which is defined by `[plugins.<plugin_name>]`. For example, the shell plugin is configured under `[plugins.shell]`.
@@ -76,16 +78,22 @@ Once you've configured your repository, you can start the monitor by running the
 buenosaires run
 ```
 
-Buenos Aires will then start monitoring the branch you specified during installation. When a new commit is pushed to that branch, it will scan for any new `.sh` files.
+Buenos Aires will then start monitoring the branch you specified during installation. On the first run it processes existing scripts; afterwards it watches for new commits and processes inserted and modified `.sh` files.
 
 ### GitOps Workflow
 
-1.  **Commit a new script**: Create a new shell script (e.g., `deploy.sh`) and commit it to your repository.
+1.  **Commit a script**: Create a shell script (e.g., `deploy.sh`) in the scanned folder and commit it to your repository.
 2.  **Push to the monitored branch**: Push the commit to the branch that Buenos Aires is monitoring.
-3.  **Linting and Validation**: Buenos Aires will automatically detect the new script and perform a dry run to validate it. This includes:
+3.  **Linting and Validation**: Buenos Aires will automatically detect the script and perform a dry run to validate it. This includes:
     -   **Syntax Check**: Using `bash -n` to check for syntax errors.
     -   **Linting**: Using `shellcheck` to identify potential issues.
 4.  **Execution**: If the script passes the validation step, Buenos Aires will execute it using the shell plugin. The output of the script will be saved to the configured log directory.
+
+Additional behaviors:
+
+-   **Initial sync**: On first run, Buenos Aires processes every `.sh` file already present in the scanned folder that has not previously succeeded. You do not need to push a new commit to get started.
+-   **Modifications re-deploy**: Modified scripts are always re-processed. Fixing a failed script or committing a new version re-runs it automatically.
+-   **Resumable tracking**: The last processed commit hash is persisted in `.buenosaires/status.json`, so the monitor resumes incrementally across restarts.
 
 This workflow allows you to manage your infrastructure and deployments through Git, with the assurance that your scripts are validated before they are executed.
 
@@ -103,22 +111,26 @@ docker build -t buenosaires .
 
 ### Running the Container
 
-To run the `buenosaires` tool in a Docker container, you'll need to mount your repository and your global configuration file into the container.
+To run the `buenosaires` tool in a Docker container, you'll need to mount your workspace and your global configuration file into the container.
 
 First, make sure you have run `buenosaires install` on your host machine to create the global configuration file at `~/.buenosaires/config.toml`.
 
-Then, you can run the container with the following command:
+The container runs as a non-root user (`appuser`), so the mounted workspace must be writable by your host user. Use the `--user` flag to match your host UID/GID:
 
 ```bash
 docker run -it --rm \
+  --user "$(id -u):$(id -g)" \
   -v $(pwd):/app \
   -v ~/.buenosaires:/home/appuser/.buenosaires \
   buenosaires run
 ```
 
+> **Important**: The `/app` mount must be an **empty directory** or an **existing clone** of the monitored repository. Buenos Aires clones the repository on first run and cannot clone into a non-empty directory.
+
 This command does the following:
 -   `docker run -it --rm`: Runs the container in interactive mode and removes it when it exits.
--   `-v $(pwd):/app`: Mounts the current directory (your repository) into the `/app` directory in the container.
+-   `--user "$(id -u):$(id -g)"`: Runs the container as your host user so it can write to the mounted workspace.
+-   `-v $(pwd):/app`: Mounts the current directory (your workspace) into the `/app` directory in the container.
 -   `-v ~/.buenosaires:/home/appuser/.buenosaires`: Mounts your global configuration directory into the container.
 -   `buenosaires run`: Runs the `run` command inside the container.
 
@@ -126,13 +138,57 @@ You can also run the `install` command in the container to create a new configur
 
 ```bash
 docker run -it --rm \
+  --user "$(id -u):$(id -g)" \
   -v ~/.buenosaires:/home/appuser/.buenosaires \
   buenosaires install
 ```
 
+## Development
+
+The project ships with pre-commit hooks so every commit is checked locally for formatting, linting, security, and tests.
+
+### Prerequisites
+
+Install the toolchain once:
+
+```bash
+# Go (1.24+), shellcheck, golangci-lint, gosec, pre-commit
+brew install go shellcheck golangci-lint gosec pre-commit
+```
+
+### Install the hooks
+
+```bash
+pre-commit install
+```
+
+From now on, every `git commit` runs the following checks on changed files:
+
+| Check | Tool | Purpose |
+| :--- | :--- | :--- |
+| Linting | `golangci-lint` (via `.golangci.yml`) | govet, staticcheck, errcheck, unused, gofmt, misspell |
+| Security | `gosec` | SAST scan for common vulnerabilities |
+| Tests | `go test ./...` | Unit tests |
+| Shell scripts | `shellcheck` | Static analysis of `.sh` files |
+| Meta | `pre-commit-hooks` | Trailing whitespace, EOF newlines, YAML/JSON validity, merge conflicts, large files |
+
+### Running everything manually
+
+A `Makefile` is provided for convenience:
+
+```bash
+make check       # lint + security + tests
+make hooks       # run all pre-commit hooks against the full tree
+make fmt         # gofmt -w
+```
+
+### Keeping CI and local checks in sync
+
+The GitHub Actions workflow runs the same checks (tests, `golangci-lint`, `gosec`) on every push and pull request.
+
 ## Status Tracking
 
-Buenos Aires keeps track of the scripts it has processed in a `.buenosaires/status.json` file in the root of your repository. This file contains the status of each script, including its linting, testing, and execution status. This file is automatically created and updated by the `run` command.
+Buenos Aires keeps track of the scripts it has processed in a `.buenosaires/status.json` file in the root of your repository. This file contains the status of each script, including its linting, testing, and execution status, as well as the hash of the last processed commit. This file is automatically created and updated by the `run` command.
 
 The `.buenosaires` directory is included in the `.gitignore` file, so the status file will not be committed to your repository.
 
