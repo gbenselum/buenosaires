@@ -43,8 +43,12 @@ repos:
         types: [go]
 
       # Shell script static analysis.
+      # .specify/scripts/ is scaffolded by the Specify CLI (vendor code); the
+      # shared library include pattern (SC1091) trips the gate on generated
+      # files, so those are excluded while project scripts stay covered.
       - id: shellcheck
         name: shellcheck
         entry: shellcheck -s bash
         language: system
         types: [shell]
+        exclude: '^\.specify/scripts/'
